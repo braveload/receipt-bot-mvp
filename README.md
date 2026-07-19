@@ -11,7 +11,7 @@ receipt-bot-mvp/
   app/
     main.py            FastAPI 웹훅 서버 (카카오 스킬서버 엔드포인트)
     kakao_adapter.py    카카오 payload 파싱 + 응답 포맷
-    extractor.py         영수증 이미지 -> 정형 데이터 (Mock / Claude Vision)
+    extractor.py         영수증 이미지 -> 정형 데이터 (Mock / Claude Vision / Google Vision)
     storage.py            SQLite 저장
     report.py              월간 요약 텍스트 + 엑셀 내보내기
   demo/
@@ -53,6 +53,36 @@ EXTRACTOR=claude uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 카카오 오픈빌더가 이 서버를 호출하려면 공인 HTTPS 주소가 필요합니다.
 (Render / Railway / Fly.io 무료 티어로 충분히 시작 가능)
+
+## 무료로 시작하기: Google Cloud Vision (Anthropic 크레딧 없이)
+
+Claude Vision은 유료(크레딧 필요)입니다. 크레딧 결제 전이거나 비용을 아예 안 쓰고
+싶다면 Google Cloud Vision OCR(월 1,000건 무료 티어)로 대체할 수 있습니다.
+
+```bash
+EXTRACTOR=google GOOGLE_VISION_API_KEY=발급받은키 uvicorn app.main:app --host 0.0.0.0 --port 8000
+```
+
+**Claude Vision과의 차이점 (중요)**: Google Vision API는 이미지에서 텍스트만
+뽑아줄 뿐, "이게 상호명이고 이게 금액이고 이 카테고리다"까지 판단해주지 않습니다.
+그래서 OCR로 뽑은 텍스트를 `extractor.py`의 `parse_receipt_text()`가 정규식/키워드
+규칙으로 파싱합니다 (상호명 = 첫 줄, 금액 = "합계/총액" 키워드가 있는 줄의 숫자,
+카테고리 = 업종 키워드 사전 매칭). 규칙 기반이라 다음과 같은 한계가 있습니다.
+
+- 영수증 레이아웃이 특이하면(세로 영수증, 로고만 있고 상호명 텍스트가 없는 경우 등)
+  상호명을 잘못 뽑을 수 있습니다.
+- 키워드 사전에 없는 업종(예: "네이버클라우드" 같은 IT 서비스)은 전부 "기타"로
+  분류됩니다. `extractor.py`의 `_CATEGORY_KEYWORDS` 딕셔너리에 키워드를 추가해서
+  개선할 수 있습니다.
+- 그래서 이 경로로 추출한 결과는 confidence를 항상 0.5로 고정해뒀습니다 —
+  카카오톡 응답에 "확인 필요" 안내가 항상 붙습니다 (main.py 로직).
+
+**API 키 발급 방법** (직접 진행 필요, 계정/결제 정보라 대신 해드릴 수 없습니다):
+1. console.cloud.google.com에서 새 프로젝트 생성
+2. "Cloud Vision API" 사용 설정
+3. API 및 서비스 → 사용자 인증 정보 → API 키 생성
+4. (권장) 키 제한사항에서 "Cloud Vision API"만 허용하도록 제한
+5. 무료 티어는 결제 계정 등록이 필요할 수 있지만, 월 1,000건까지는 과금되지 않습니다
 
 ## 실서비스 전환 전 준비해야 할 것 (체크리스트)
 
@@ -99,6 +129,8 @@ EXTRACTOR=claude uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 - `MockReceiptExtractor`는 실제 이미지 내용을 보지 않고 샘플 5개를 순환 반환합니다
   (API 키 없이 파이프라인 로직만 검증하기 위함).
+- `GoogleVisionExtractor`(무료 대안)는 정규식/키워드 기반 파싱이라 Claude Vision보다
+  정확도가 낮습니다 — 위 "무료로 시작하기" 섹션의 한계 참고.
 - 이미지 URL 파싱(`extract_image_url`)은 카카오 실제 계정 연동 후 검증 필요합니다.
 - `/report/{user_id}/excel` 다운로드 엔드포인트는 인증이 없어 user_id를 알면 누구나
   접근 가능합니다. 실사용자 데이터가 쌓이기 전에 인증/서명된 링크로 교체가 필요합니다.
