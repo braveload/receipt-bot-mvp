@@ -179,9 +179,15 @@ def _guess_merchant(text: str) -> str:
 
 
 def _guess_amount(text: str) -> int:
-    for line in text.splitlines():
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
         if any(keyword in line for keyword in _AMOUNT_KEYWORDS):
             nums = _AMOUNT_PATTERN.findall(line)
+            if not nums and i + 1 < len(lines):
+                # 열(column) 레이아웃 영수증은 Vision API가 라벨과 값을 다른 줄로
+                # 나눠 인식하는 경우가 흔하다 (실제 테스트에서 "Net Amount" 다음
+                # 줄에 "185.00"만 단독으로 찍힌 사례로 발견). 다음 줄도 확인한다.
+                nums = _AMOUNT_PATTERN.findall(lines[i + 1])
             if nums:
                 return int(nums[-1].replace(",", ""))
     # 키워드 매칭 실패 시 최후 수단: 텍스트 전체에서 가장 큰 숫자를 금액으로 추정.
@@ -304,10 +310,6 @@ class GoogleVisionExtractor(ReceiptExtractor):
         full_text = response0.get("fullTextAnnotation", {}).get("text", "")
         if not full_text:
             raise ExtractionError("Vision API가 텍스트를 찾지 못함 (이미지가 흐리거나 영수증이 아닐 수 있음)")
-        # 디버그용: 파싱 규칙(_guess_amount 등)이 실제 OCR 출력과 맞는지 확인하려면
-        # Render 로그에서 이 줄을 확인한다. 개인정보가 찍힌 실제 영수증에서는
-        # 로그에 카드번호 등이 남지 않도록 추후 제거하거나 마스킹 필요.
-        print(f"[vision-ocr-debug] {full_text[:800]!r}")
         return full_text
 
     def extract(self, image_url: str) -> ReceiptData:
