@@ -63,8 +63,11 @@ async def kakao_webhook(request: Request, x_webhook_secret: str | None = Header(
 
     image_url = kakao_adapter.extract_image_url(payload)
     if image_url:
-        extractor = get_extractor()
         try:
+            # get_extractor()도 try 안으로 포함 — EXTRACTOR=google인데 GOOGLE_VISION_API_KEY가
+            # 없는 경우처럼, 추출기 생성 자체가 실패해도(RuntimeError) 500 대신 친절한 안내가
+            # 나가도록 한다. (이전에는 get_extractor()가 try 밖에 있어 이 경우 500이었음 — 수정)
+            extractor = get_extractor()
             data = extractor.extract(image_url)
         except ExtractionError as exc:
             # 모델이 이상한 응답을 준 경우 — 500 대신 사용자에게 친절하게 안내하고 로그만 남김
@@ -74,7 +77,7 @@ async def kakao_webhook(request: Request, x_webhook_secret: str | None = Header(
                     "영수증을 읽는 데 실패했어요 😥 사진이 흐릿하지 않은지 확인 후 다시 보내주세요."
                 )
             )
-        except Exception as exc:  # 네트워크 오류 등 예상 못한 실패 대비 최종 방어선
+        except Exception as exc:  # 네트워크 오류, 설정 오류(RuntimeError) 등 예상 못한 실패 대비 최종 방어선
             print(f"[extract-fatal] user={user_id} url={image_url} err={exc}")
             return JSONResponse(
                 kakao_adapter.build_simple_text_response(
