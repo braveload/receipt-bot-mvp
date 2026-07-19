@@ -152,7 +152,10 @@ class ClaudeVisionExtractor(ReceiptExtractor):
 # Google Cloud Vision (무료 티어) 기반 추출기
 # ---------------------------------------------------------------------------
 
-_AMOUNT_KEYWORDS = ("합계", "총액", "결제금액", "받을금액", "카드승인금액", "승인금액", "판매금액")
+_AMOUNT_KEYWORDS = (
+    "합계", "총액", "결제금액", "받을금액", "카드승인금액", "승인금액", "판매금액",
+    "Total", "Net Amount", "Amount Due", "Grand Total",
+)
 _AMOUNT_PATTERN = re.compile(r"[\d][\d,]{2,}")
 _DATE_PATTERN = re.compile(r"(20\d{2})\s*[.\-/년]\s*(\d{1,2})\s*[.\-/월]\s*(\d{1,2})")
 _BIZ_REG_PATTERN = re.compile(r"\d{3}-\d{2}-\d{5}")
@@ -181,9 +184,17 @@ def _guess_amount(text: str) -> int:
             nums = _AMOUNT_PATTERN.findall(line)
             if nums:
                 return int(nums[-1].replace(",", ""))
-    # 키워드 매칭 실패 시 최후 수단: 텍스트 전체에서 가장 큰 숫자를 금액으로 추정
-    all_nums = [int(n.replace(",", "")) for n in _AMOUNT_PATTERN.findall(text)]
-    return max(all_nums) if all_nums else 0
+    # 키워드 매칭 실패 시 최후 수단: 텍스트 전체에서 가장 큰 숫자를 금액으로 추정.
+    # 단, 콤마 없는 7자리 이상 숫자(전화번호/사업자번호/영수증 일련번호 등)는 제외한다 —
+    # 실제 테스트에서 하단의 고객센터 전화번호(9880123123)가 "9,880,123,123원"으로
+    # 잘못 뽑힌 사례를 발견해서 고쳤다. 금액은 보통 콤마로 구분 표기되므로, 콤마가
+    # 없는 숫자는 7자리(약 999만원)까지만 금액 후보로 인정한다.
+    candidates = [
+        int(n.replace(",", ""))
+        for n in _AMOUNT_PATTERN.findall(text)
+        if "," in n or len(n) <= 7
+    ]
+    return max(candidates) if candidates else 0
 
 
 def _guess_date(text: str) -> str:
@@ -200,8 +211,17 @@ def _guess_date(text: str) -> str:
 def _guess_category(text: str, merchant: str) -> str:
     haystack = f"{merchant} {text}".lower()
     for category, keywords in _CATEGORY_KEYWORDS.items():
-        if any(keyword.lower() in haystack for keyword in keywords):
-            return category
+        for keyword in keywords:
+            # "kt", "cu"처럼 2글자 이하인 짧은 키워드는 단순 부분 문자열 매칭 시
+            # 다른 단어 안에 우연히 포함되어 오탐될 수 있다 (예: 실제 테스트에서
+            # 영수증 번호 "SI37482-MKT-90/81"의 "MKT" 안 "kt"가 통신사 "kt"로 잘못
+            # 매칭되어 통신비로 분류된 사례 발견). 짧은 키워드는 단어 경계로 감싸서
+            # 정확히 일치할 때만 인정한다.
+            if len(keyword) <= 2:
+                if re.search(rf"\b{re.escape(keyword.lower())}\b", haystack):
+                    return category
+            elif keyword.lower() in haystack:
+                return category
     return "기타"
 
 
