@@ -304,6 +304,10 @@ class GoogleVisionExtractor(ReceiptExtractor):
         full_text = response0.get("fullTextAnnotation", {}).get("text", "")
         if not full_text:
             raise ExtractionError("Vision API가 텍스트를 찾지 못함 (이미지가 흐리거나 영수증이 아닐 수 있음)")
+        # 디버그용: 파싱 규칙(_guess_amount 등)이 실제 OCR 출력과 맞는지 확인하려면
+        # Render 로그에서 이 줄을 확인한다. 개인정보가 찍힌 실제 영수증에서는
+        # 로그에 카드번호 등이 남지 않도록 추후 제거하거나 마스킹 필요.
+        print(f"[vision-ocr-debug] {full_text[:800]!r}")
         return full_text
 
     def extract(self, image_url: str) -> ReceiptData:
