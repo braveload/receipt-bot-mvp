@@ -9,6 +9,7 @@ def isolated_runtime(tmp_path, monkeypatch):
     from app import extractor, storage
 
     monkeypatch.setattr(storage, "DB_PATH", tmp_path / "receipts.db")
+    monkeypatch.delenv("DATABASE_URL", raising=False)
     monkeypatch.setenv("EXTRACTOR", "mock")
     monkeypatch.delenv("WEBHOOK_SECRET", raising=False)
     monkeypatch.delenv("GOOGLE_VISION_API_KEY", raising=False)
