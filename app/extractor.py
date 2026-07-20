@@ -32,7 +32,7 @@ import json
 import os
 import re
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import UTC, datetime
 from itertools import cycle
 from typing import Optional
 
@@ -211,7 +211,7 @@ def _guess_date(text: str) -> str:
             return f"{int(year):04d}-{int(month):02d}-{int(day):02d}"
         except ValueError:
             pass
-    return datetime.utcnow().strftime("%Y-%m-%d")
+    return datetime.now(UTC).strftime("%Y-%m-%d")
 
 
 def _guess_category(text: str, merchant: str) -> str:

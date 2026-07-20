@@ -42,9 +42,15 @@ def extract_user_id(payload: dict[str, Any]) -> str:
     )
 
 
-def build_simple_text_response(text: str) -> dict[str, Any]:
+def build_simple_text_response(text: str, quick_replies: list[str] | None = None) -> dict[str, Any]:
     """카카오 스킬 응답 2.0 포맷 (simpleText) — 이 포맷은 공식 문서 기준 안정적으로 문서화되어 있음."""
-    return {
+    response = {
         "version": "2.0",
         "template": {"outputs": [{"simpleText": {"text": text}}]},
     }
+    if quick_replies:
+        response["template"]["quickReplies"] = [
+            {"action": "message", "label": label, "messageText": label}
+            for label in quick_replies
+        ]
+    return response

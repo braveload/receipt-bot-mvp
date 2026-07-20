@@ -16,16 +16,32 @@ receipt-bot-mvp/
     report.py              월간 요약 텍스트 + 엑셀 내보내기
   demo/
     run_demo.py         카카오 계정 없이 전체 흐름을 검증하는 데모 스크립트
+  tests/                pytest 자동 회귀 테스트
+  docs/                 사업모델 설계서, 진행상황, 프로젝트 작업 지침
+  marketing/            홍보 문구, 인스타그램 시안, 앱 아이콘
+  site/                  랜딩페이지와 신청 완료 페이지
 ```
+
+기획 문서, 웹 페이지, 홍보 자료까지 이 프로젝트 폴더 하나에 통합되어 있습니다.
+중복된 백엔드 ZIP이나 과거 소스 복사본은 포함하지 않고 GitHub 최신 소스를 기준으로 유지합니다.
 
 ## 동작 흐름
 
 1. 사용자가 카카오톡 채널에 영수증 사진 전송
 2. 카카오 i 오픈빌더가 등록된 스킬서버(`/kakao/webhook`)를 호출
-3. `extractor.py`가 이미지에서 상호명/금액/일자/카테고리/사업·개인 여부를 한 번에 추출
-   (전통적인 "OCR API + 별도 분류 LLM" 2단계 대신, Claude Vision 한 번 호출로 단순화)
-4. SQLite에 저장, 카카오톡으로 분류 결과 즉시 회신
-5. "이번달" 발화 시 월간 요약, "신고파일" 관련 발화 시 엑셀 다운로드 안내
+3. `extractor.py`가 이미지에서 상호명/금액/일자/카테고리/사업·개인 여부를 추출
+   (현재 배포 권장 경로는 Google Vision OCR + 규칙 기반 파싱이며, Claude Vision도 선택 가능)
+4. OCR 결과를 임시 저장하고 사용자에게 확인 화면과 `저장`·`수정` 빠른 답장을 제공
+5. 사용자가 내용을 수정한 뒤 `저장`하면 확정 데이터로 반영
+6. "이번달" 발화 시 월간 요약, "신고파일" 발화 시 만료되는 서명 링크 제공
+
+수정 명령 예시:
+
+```text
+수정 상호명=스타벅스 선릉점; 금액=5000; 날짜=2026-07-20; 카테고리=식비; 구분=개인
+```
+
+바꿀 항목만 입력하면 되며, 확인 전 임시 데이터는 월간 요약과 엑셀에서 제외됩니다.
 
 ## 로컬에서 데모 실행 (계정/API 키 불필요)
 
@@ -43,12 +59,24 @@ EXTRACTOR=mock python demo/run_demo.py
 EXTRACTOR=mock python demo/edge_case_check.py
 ```
 
+## pytest 자동 테스트
+
+테스트는 임시 SQLite DB를 사용하므로 실제 `data/receipts.db`를 변경하지 않습니다.
+
+```bash
+pip install -r requirements-dev.txt
+pytest
+```
+
+Google Vision 파싱 회귀 사례, 카카오 웹훅, 확인·수정·저장, 오류 응답, 웹훅 시크릿,
+월간 요약, 서명 링크 검증과 만료 처리까지 한 번에 검증합니다. 실제 Google/Anthropic API는 호출하지 않습니다.
+
 ## 실제 서버로 띄우기
 
 ```bash
 pip install -r requirements.txt
-cp .env.example .env   # ANTHROPIC_API_KEY 채워넣기
-EXTRACTOR=claude uvicorn app.main:app --host 0.0.0.0 --port 8000
+cp .env.example .env
+EXTRACTOR=google GOOGLE_VISION_API_KEY=발급받은키 uvicorn app.main:app --host 0.0.0.0 --port 8000
 ```
 
 카카오 오픈빌더가 이 서버를 호출하려면 공인 HTTPS 주소가 필요합니다.
@@ -94,7 +122,8 @@ EXTRACTOR=google GOOGLE_VISION_API_KEY=발급받은키 uvicorn app.main:app --ho
       한 번 테스트 전송 해보고 `kakao_adapter.py`의 `extract_image_url()`이 맞는
       필드를 읽고 있는지 확인·수정 필요 (공식 문서가 로그인 후에만 전체 공개되어
       정확한 필드 경로는 실제 등록 후 확정해야 합니다).
-- [ ] **Anthropic API 키** 발급 (console.anthropic.com) — 영수증 이미지 추출에 사용
+- [x] **Google Cloud Vision API 키** 발급 및 Render 환경변수 등록
+- [ ] **Anthropic API 키** 발급 — Claude Vision 경로를 선택할 때만 필요
 - [ ] **호스팅**: Render/Railway 등에 배포해 공인 URL 확보
 - [ ] **월간 요약 자동 발송**: 현재는 사용자가 "이번달"이라고 물어야 응답하는
       수동(reactive) 방식입니다. 설계서처럼 매달 1회 먼저 보내려면 카카오톡
@@ -107,6 +136,8 @@ EXTRACTOR=google GOOGLE_VISION_API_KEY=발급받은키 uvicorn app.main:app --ho
       (미설정 시에는 검증을 건너뜁니다 — 로컬 데모 편의). 카카오 오픈빌더가
       커스텀 헤더를 스킬 서버로 전달할 수 있는지 등록 화면에서 확인 후 값을
       맞춰 넣으세요.
+- [x] **신고파일 보호**: `REPORT_SIGNING_SECRET`으로 HMAC 서명하고 기본 10분 뒤 만료되는
+      링크만 허용합니다. 운영 환경에서는 `PUBLIC_BASE_URL`도 실제 HTTPS 주소로 설정합니다.
 
 ## 코드 점검 중 발견해서 고친 문제 (2차 리뷰)
 
@@ -132,5 +163,4 @@ EXTRACTOR=google GOOGLE_VISION_API_KEY=발급받은키 uvicorn app.main:app --ho
 - `GoogleVisionExtractor`(무료 대안)는 정규식/키워드 기반 파싱이라 Claude Vision보다
   정확도가 낮습니다 — 위 "무료로 시작하기" 섹션의 한계 참고.
 - 이미지 URL 파싱(`extract_image_url`)은 카카오 실제 계정 연동 후 검증 필요합니다.
-- `/report/{user_id}/excel` 다운로드 엔드포인트는 인증이 없어 user_id를 알면 누구나
-  접근 가능합니다. 실사용자 데이터가 쌓이기 전에 인증/서명된 링크로 교체가 필요합니다.
+- 신고파일 링크는 최대 1시간 이내에서만 발급되며 기본 만료시간은 10분입니다.
