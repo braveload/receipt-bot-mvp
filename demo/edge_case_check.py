@@ -9,6 +9,8 @@ import sys
 from pathlib import Path
 
 os.environ.setdefault("EXTRACTOR", "mock")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -111,11 +113,31 @@ def check_excel_endpoint():
         "action": {"params": {"secureimage": "https://example.com/r.jpg"}},
     }
     client.post("/kakao/webhook", json=payload)
-    resp = client.get("/report/excel-test-user/excel")
+    client.post("/kakao/webhook", json={
+        "userRequest": {
+            "utterance": "저장",
+            "user": {"properties": {"plusfriendUserKey": "excel-test-user"}},
+        },
+        "action": {"params": {}},
+    })
+    os.environ["REPORT_SIGNING_SECRET"] = "demo-secret"
+    from urllib.parse import urlsplit
+
+    link_resp = client.post("/kakao/webhook", json={
+        "userRequest": {
+            "utterance": "신고파일",
+            "user": {"properties": {"plusfriendUserKey": "excel-test-user"}},
+        },
+        "action": {"params": {}},
+    })
+    link = link_resp.json()["template"]["outputs"][0]["simpleText"]["text"].splitlines()[-1]
+    parsed = urlsplit(link)
+    resp = client.get(f"{parsed.path}?{parsed.query}")
     assert resp.status_code == 200, f"엑셀 다운로드 실패 {resp.status_code}"
     assert resp.headers["content-type"].startswith("application/vnd.openxmlformats")
     assert len(resp.content) > 1000
     print(f"[OK] 엑셀 다운로드 엔드포인트 정상 ({len(resp.content)} bytes)")
+    os.environ.pop("REPORT_SIGNING_SECRET", None)
 
 
 if __name__ == "__main__":

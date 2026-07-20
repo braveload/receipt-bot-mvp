@@ -16,6 +16,8 @@ import sys
 from pathlib import Path
 
 os.environ.setdefault("EXTRACTOR", "mock")
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastapi.testclient import TestClient  # noqa: E402
@@ -54,6 +56,9 @@ def main() -> None:
         resp = client.post("/kakao/webhook", json=payload)
         text = resp.json()["template"]["outputs"][0]["simpleText"]["text"]
         print(f"[봇 응답 {i+1}] {text}")
+        confirm = client.post("/kakao/webhook", json=fake_text_payload("저장"))
+        confirm_text = confirm.json()["template"]["outputs"][0]["simpleText"]["text"]
+        print(f"[저장 확인 {i+1}] {confirm_text}")
 
     print("\n=== 2) '이번달' 발화 -> 월간 요약 ===")
     resp = client.post("/kakao/webhook", json=fake_text_payload("이번달"))
