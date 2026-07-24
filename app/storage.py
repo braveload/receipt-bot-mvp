@@ -77,6 +77,16 @@ def init_db() -> None:
                 "CREATE INDEX IF NOT EXISTS idx_inquiries_hash_created "
                 "ON inquiries(client_hash, created_at)"
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id BIGSERIAL PRIMARY KEY,
+                    email TEXT NOT NULL UNIQUE,
+                    password_hash TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                )
+                """
+            )
         return
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -144,6 +154,16 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_inquiries_hash_created "
             "ON inquiries(client_hash, created_at)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                email TEXT NOT NULL UNIQUE,
+                password_hash TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
         )
 
 
@@ -274,6 +294,16 @@ def update_pending_receipt(kakao_user_id: str, changes: dict[str, object]) -> Ma
             values,
         )
     return get_pending_receipt(kakao_user_id)
+
+
+def discard_pending_receipt(kakao_user_id: str) -> bool:
+    """확인 전 임시(draft) 영수증을 취소한다. 삭제된 게 있으면 True."""
+    with _connect() as conn:
+        cursor = conn.execute(
+            _sql("DELETE FROM receipts WHERE kakao_user_id = ? AND status = 'draft'"),
+            (kakao_user_id,),
+        )
+        return cursor.rowcount > 0
 
 
 def confirm_pending_receipt(kakao_user_id: str) -> Mapping[str, Any] | None:
@@ -410,3 +440,37 @@ def _placeholder() -> str:
 
 def _sql(query: str) -> str:
     return query.replace("?", "%s") if _uses_postgres() else query
+
+
+def create_user(email: str, password_hash: str) -> int:
+    """이메일 중복 시 ValueError."""
+    now = datetime.now(UTC).isoformat()
+    sql = "INSERT INTO users (email, password_hash, created_at) VALUES (?, ?, ?)"
+    if _uses_postgres():
+        sql = sql.replace("?", "%s") + " RETURNING id"
+        import psycopg
+
+        try:
+            with _connect() as conn:
+                cur = conn.execute(sql, (email, password_hash, now))
+                return cur.fetchone()["id"]
+        except psycopg.errors.UniqueViolation as exc:
+            raise ValueError("already registered") from exc
+
+    try:
+        with _connect() as conn:
+            cur = conn.execute(sql, (email, password_hash, now))
+            return cur.lastrowid
+    except sqlite3.IntegrityError as exc:
+        raise ValueError("already registered") from exc
+
+
+def get_user_by_email(email: str) -> Mapping[str, Any] | None:
+    with _connect() as conn:
+        return conn.execute(_sql("SELECT * FROM users WHERE email = ?"), (email,)).fetchone()
+
+
+def get_user_by_id(user_id: int) -> Mapping[str, Any] | None:
+    with _connect() as conn:
+        return conn.execute(_sql("SELECT * FROM users WHERE id = ?"), (user_id,)).fetchone()
+
