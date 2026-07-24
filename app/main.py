@@ -21,8 +21,9 @@ from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 
-from . import contact, kakao_adapter, report, storage
+from . import contact, kakao_adapter, report, storage, web_api
 from .extractor import ExtractionError, download_private_image, get_extractor
+from .models import VALID_CATEGORIES, VALID_DOC_TYPES
 
 try:
     from dotenv import load_dotenv
@@ -47,6 +48,15 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 SITE_DIR = PROJECT_ROOT / "site"
 app.mount("/assets", StaticFiles(directory=SITE_DIR / "assets"), name="site-assets")
 
+app.include_router(web_api.router)
+
+
+@app.get("/app", response_class=HTMLResponse)
+def webapp_home() -> HTMLResponse:
+    """카카오톡과 별개로 동작하는 독립 웹앱 (자체 로그인 + REST API)."""
+    html = (PROJECT_ROOT / "app" / "static" / "webapp.html").read_text(encoding="utf-8")
+    return HTMLResponse(html)
+
 EDITABLE_FIELDS = {
     "상호명": "merchant",
     "금액": "amount",
@@ -59,8 +69,6 @@ EDITABLE_FIELDS = {
     "사업/개인": "biz_or_personal",
     "사업자번호": "biz_reg_no",
 }
-VALID_DOC_TYPES = {"간이영수증", "세금계산서", "현금영수증", "카드전표"}
-VALID_CATEGORIES = {"광고비", "접대비", "소모품비", "통신비", "교통비", "식비", "임차료", "기타"}
 
 
 def _public_base_url(request: Request) -> str:
