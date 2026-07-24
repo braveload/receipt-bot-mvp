@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="160" viewBox="0 0 720 160" role="img" aria-labelledby="title desc">
+  <title id="title">RERO WORKS 리로웍스 가로형 로고</title>
+  <desc id="desc">R 심볼과 RERO WORKS 워드마크로 구성된 리로웍스 공식 가로형 로고</desc>
+  <g transform="translate(24 28)">
+    <path d="M18 94V24c0-8 5-13 13-13h27c18 0 30 11 30 27S76 65 58 65H31"
+      fill="none" stroke="#101419" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M58 65 86 94" fill="none" stroke="#101419" stroke-width="10" stroke-linecap="round"/>
+    <path d="m59 84 14 13 27-27" fill="none" stroke="#16B8AE" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <g fill="#101419">
+    <text x="150" y="76" font-family="Arial, Helvetica, sans-serif" font-size="54" font-weight="600" letter-spacing="8">RERO WORKS</text>
+    <text x="153" y="115" font-family="'Malgun Gothic', sans-serif" font-size="19" font-weight="400" letter-spacing="10">리로웍스</text>
+  </g>
+  <rect x="263" y="87" width="16" height="4" rx="2" fill="#16B8AE"/>
+</svg>

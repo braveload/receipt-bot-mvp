@@ -139,6 +139,11 @@ EXTRACTOR=google GOOGLE_VISION_API_KEY=발급받은키 uvicorn app.main:app --ho
       맞춰 넣으세요.
 - [x] **신고파일 보호**: `REPORT_SIGNING_SECRET`으로 HMAC 서명하고 기본 10분 뒤 만료되는
       링크만 허용합니다. 운영 환경에서는 `PUBLIC_BASE_URL`도 실제 HTTPS 주소로 설정합니다.
+- [x] **회사 홈페이지 통합**: FastAPI의 `/`에서 리로웍스 홈페이지를 제공하고
+      개인정보처리방침, 이용 안내, 검색엔진 파일을 같은 배포에서 제공합니다.
+- [x] **홈페이지 문의 저장**: 문의는 운영 PostgreSQL(로컬 SQLite)에 먼저 저장되며
+      네이버 SMTP 알림이 실패해도 접수 내용은 보존됩니다. 배포 전
+      `SMTP_USERNAME`, `SMTP_PASSWORD`, `CONTACT_HASH_SECRET`을 Render에 설정해야 합니다.
 
 ## 코드 점검 중 발견해서 고친 문제 (2차 리뷰)
 

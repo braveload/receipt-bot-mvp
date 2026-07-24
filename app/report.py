@@ -63,6 +63,8 @@ def export_to_excel(kakao_user_id: str, out_path: Path, yyyy_mm: str | None = No
         cell.fill = header_fill
 
     biz_total = 0
+    supply_total = 0
+    vat_total = 0
     for r in rows:
         ws.append(
             [
@@ -80,10 +82,20 @@ def export_to_excel(kakao_user_id: str, out_path: Path, yyyy_mm: str | None = No
         )
         if r["biz_or_personal"] == "사업":
             biz_total += r["amount"]
+            if r["supply_amount"] is not None:
+                supply_total += r["supply_amount"]
+            if r["vat_amount"] is not None:
+                vat_total += r["vat_amount"]
 
     total_row = len(rows) + 3
     ws.cell(row=total_row, column=1, value="사업 경비 합계").font = Font(bold=True)
     ws.cell(row=total_row, column=3, value=biz_total).font = Font(bold=True)
+    ws.cell(row=total_row, column=4, value=supply_total).font = Font(bold=True)
+    ws.cell(row=total_row, column=5, value=vat_total).font = Font(bold=True)
+
+    for row_idx in range(2, total_row + 1):
+        for col_idx in (3, 4, 5):
+            ws.cell(row=row_idx, column=col_idx).number_format = '#,##0"원"'
 
     for col_idx, header in enumerate(HEADER, start=1):
         ws.column_dimensions[get_column_letter(col_idx)].width = max(12, len(header) + 4)

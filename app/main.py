@@ -13,14 +13,15 @@ import hashlib
 import hmac
 import re
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlencode
 
-from fastapi import FastAPI, Header, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi import BackgroundTasks, FastAPI, Header, HTTPException, Request
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
+from fastapi.staticfiles import StaticFiles
 
-from . import kakao_adapter, report, storage
+from . import contact, kakao_adapter, report, storage
 from .extractor import ExtractionError, download_private_image, get_extractor
 
 try:
@@ -34,12 +35,17 @@ except ImportError:  # pragma: no cover - 프로덕션(Render 등)은 보통 대
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     storage.init_db()
+    storage.delete_expired_inquiries((datetime.now(UTC) - timedelta(days=365)).isoformat())
     yield
 
 
 app = FastAPI(title="영수증봇 MVP", lifespan=lifespan)
 storage.init_db()  # 모듈 로드 시점에 즉시 실행 (TestClient를 컨텍스트 매니저 없이 쓰면
                     # startup 이벤트가 안 뜨는 경우가 있어, 안전하게 여기서도 한 번 더 호출)
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SITE_DIR = PROJECT_ROOT / "site"
+app.mount("/assets", StaticFiles(directory=SITE_DIR / "assets"), name="site-assets")
 
 EDITABLE_FIELDS = {
     "상호명": "merchant",
@@ -55,6 +61,74 @@ EDITABLE_FIELDS = {
 }
 VALID_DOC_TYPES = {"간이영수증", "세금계산서", "현금영수증", "카드전표"}
 VALID_CATEGORIES = {"광고비", "접대비", "소모품비", "통신비", "교통비", "식비", "임차료", "기타"}
+
+
+def _public_base_url(request: Request) -> str:
+    return os.environ.get("PUBLIC_BASE_URL", str(request.base_url).rstrip("/")).rstrip("/")
+
+
+@app.get("/", response_class=HTMLResponse)
+def website_home(request: Request) -> HTMLResponse:
+    html = (SITE_DIR / "index.html").read_text(encoding="utf-8")
+    html = html.replace("{{BASE_URL}}", _public_base_url(request))
+    return HTMLResponse(html)
+
+
+@app.get("/privacy.html")
+def website_privacy() -> FileResponse:
+    return FileResponse(SITE_DIR / "privacy.html", media_type="text/html; charset=utf-8")
+
+
+@app.get("/terms.html")
+def website_terms() -> FileResponse:
+    return FileResponse(SITE_DIR / "terms.html", media_type="text/html; charset=utf-8")
+
+
+@app.get("/styles.css")
+def website_styles() -> FileResponse:
+    return FileResponse(SITE_DIR / "styles.css", media_type="text/css; charset=utf-8")
+
+
+@app.get("/script.js")
+def website_script() -> FileResponse:
+    return FileResponse(SITE_DIR / "script.js", media_type="text/javascript; charset=utf-8")
+
+
+@app.get("/og.png")
+def website_social_image() -> FileResponse:
+    return FileResponse(SITE_DIR / "og.png", media_type="image/png")
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def website_robots(request: Request) -> str:
+    return f"User-agent: *\nAllow: /\nSitemap: {_public_base_url(request)}/sitemap.xml\n"
+
+
+@app.get("/sitemap.xml")
+def website_sitemap(request: Request) -> Response:
+    base_url = _public_base_url(request)
+    xml = (
+        '<?xml version="1.0" encoding="UTF-8"?>\n'
+        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
+        f"  <url><loc>{base_url}/</loc><priority>1.0</priority></url>\n"
+        f"  <url><loc>{base_url}/privacy.html</loc><priority>0.3</priority></url>\n"
+        f"  <url><loc>{base_url}/terms.html</loc><priority>0.3</priority></url>\n"
+        "</urlset>\n"
+    )
+    return Response(xml, media_type="application/xml")
+
+
+@app.post("/api/contact", status_code=201)
+def website_contact(
+    payload: contact.ContactRequest,
+    request: Request,
+    background_tasks: BackgroundTasks,
+) -> dict[str, object]:
+    reference = contact.create_contact(payload, request)
+    if reference is None:
+        return {"ok": True, "reference": "RW-RECEIVED"}
+    background_tasks.add_task(contact.send_notification, reference)
+    return {"ok": True, "reference": reference}
 
 
 def _log_user_id(user_id: str) -> str:

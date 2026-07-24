@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="리로웍스의 영수증봇은 영수증 접수부터 내역 확인, 엑셀 보고서 생성까지 돕는 업무 자동화 서비스입니다.">
+  <meta name="theme-color" content="#0b0d0f">
+  <meta property="og:title" content="리로웍스 | 반복 업무를 더 간단하게">
+  <meta property="og:description" content="영수증 접수부터 내역 확인, 엑셀 보고서 생성까지.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="{{BASE_URL}}/">
+  <meta property="og:image" content="{{BASE_URL}}/og.png">
+  <meta property="og:image:width" content="1768">
+  <meta property="og:image:height" content="922">
+  <meta property="og:image:alt" content="리로웍스 영수증봇 서비스 소개">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="리로웍스 | 반복 업무를 더 간단하게">
+  <meta name="twitter:description" content="영수증 접수부터 내역 확인, 엑셀 보고서 생성까지.">
+  <meta name="twitter:image" content="{{BASE_URL}}/og.png">
+  <link rel="canonical" href="{{BASE_URL}}/">
+  <title>리로웍스 | 영수증봇</title>
+  <link rel="icon" href="./assets/brand/favicon.ico" sizes="any">
+  <link rel="stylesheet" href="./styles.css">
+  <script src="./script.js" defer></script>
+  <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      "name": "리로웍스",
+      "alternateName": "RERO WORKS",
+      "url": "{{BASE_URL}}/",
+      "email": "reromoon@naver.com",
+      "telephone": "+82-10-2920-8875",
+      "brand": {
+        "@type": "Brand",
+        "name": "영수증봇",
+        "description": "영수증 접수, 확인, 저장 및 엑셀 보고서 생성을 돕는 MVP 서비스"
+      }
+    }
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 바로가기</a>
+
+  <header class="site-header" data-header>
+    <div class="shell nav-wrap">
+      <a class="brand" href="#top" aria-label="리로웍스 홈">
+        <img src="./assets/brand/rero-works-web-transparent.png" alt="RERO WORKS 리로웍스">
+      </a>
+      <button class="menu-button" type="button" aria-expanded="false" aria-controls="main-nav">
+        <span></span><span></span>
+        <span class="sr-only">메뉴 열기</span>
+      </button>
+      <nav id="main-nav" class="main-nav" aria-label="주요 메뉴">
+        <a href="#company">리로웍스</a>
+        <a href="#service">영수증봇</a>
+        <a href="#how">이용 방법</a>
+        <a href="#screens">제품 화면</a>
+        <a class="nav-cta" href="#contact">테스트 문의</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="shell hero-grid">
+        <div class="hero-copy reveal">
+          <p class="eyebrow"><span></span> RERO WORKS · RECEIPT BOT</p>
+          <h1>반복되는 영수증 정리,<br><em>대화하듯 간단하게.</em></h1>
+          <p class="hero-lead">영수증 접수부터 내역 확인, 엑셀 보고서 생성까지.<br>리로웍스는 작지만 반복적인 업무를 더 가볍게 만듭니다.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#service">영수증봇 알아보기 <span>↗</span></a>
+            <a class="button button-ghost" href="#contact">영수증봇 테스트 문의</a>
+          </div>
+          <ul class="trust-list" aria-label="서비스 특징">
+            <li><span>01</span> 카카오톡 기반</li>
+            <li><span>02</span> 확인 후 저장</li>
+            <li><span>03</span> 엑셀 내보내기</li>
+          </ul>
+        </div>
+
+        <div class="hero-visual reveal reveal-delay" aria-label="영수증봇 대화 화면 예시">
+          <div class="orbit orbit-one"></div>
+          <div class="orbit orbit-two"></div>
+          <div class="phone">
+            <div class="phone-top"><span>9:41</span><i></i><b>● ●</b></div>
+            <div class="chat-head">
+              <div class="bot-avatar"><span>R</span><i></i></div>
+              <div><strong>영수증봇</strong><small>리로웍스</small></div>
+              <span class="online">운영 중</span>
+            </div>
+            <div class="chat-body">
+              <p class="date">오늘</p>
+              <div class="receipt-photo">
+                <span>RECEIPT</span>
+                <i></i><i></i><i></i>
+                <b>₩ 48,500</b>
+              </div>
+              <div class="message bot-message">
+                영수증을 확인했어요.
+                <dl>
+                  <div><dt>상호</dt><dd>리로카페</dd></div>
+                  <div><dt>금액</dt><dd>48,500원</dd></div>
+                  <div><dt>분류</dt><dd>업무비</dd></div>
+                </dl>
+              </div>
+              <div class="quick-actions"><span>저장</span><span>수정</span></div>
+            </div>
+            <div class="chat-input"><span>메시지를 입력하세요</span><b>↑</b></div>
+          </div>
+          <div class="float-note note-a"><span>✓</span><div><b>내역 확인</b><small>저장 전 한 번 더</small></div></div>
+          <div class="float-note note-b"><span>↗</span><div><b>Excel</b><small>월별 보고서 생성</small></div></div>
+        </div>
+      </div>
+      <div class="scroll-note" aria-hidden="true">SCROLL <span></span></div>
+    </section>
+
+    <section class="company section" id="company">
+      <div class="shell split">
+        <div class="section-heading reveal">
+          <p class="eyebrow dark"><span></span> ABOUT RERO WORKS</p>
+          <h2>작은 불편을 발견하고,<br>쓸모 있는 흐름으로 바꿉니다.</h2>
+        </div>
+        <div class="company-copy reveal">
+          <p>리로웍스는 반복되는 실무를 단순하게 만드는 1인 기술회사입니다. 거대한 기능보다 오늘 바로 시간을 아껴주는 도구를 만듭니다.</p>
+          <div class="company-principles">
+            <article><span>01</span><h3>Simple</h3><p>설명 없이도 쓸 수 있도록</p></article>
+            <article><span>02</span><h3>Reliable</h3><p>확인 가능한 결과를 중심으로</p></article>
+            <article><span>03</span><h3>Practical</h3><p>실제 업무에 필요한 만큼</p></article>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="problem section">
+      <div class="shell">
+        <div class="problem-intro reveal">
+          <p class="eyebrow dark"><span></span> THE PROBLEM</p>
+          <h2>영수증 한 장은 간단하지만,<br>수십 장이 쌓이면 일이 됩니다.</h2>
+        </div>
+        <div class="problem-grid">
+          <article class="problem-card reveal"><span>01</span><h3>반복 입력</h3><p>날짜, 상호, 금액을 매번 다시 확인하고 입력합니다.</p></article>
+          <article class="problem-card reveal"><span>02</span><h3>월말 정리</h3><p>흩어진 영수증을 모아 엑셀로 옮기는 데 시간이 듭니다.</p></article>
+          <article class="problem-card reveal"><span>03</span><h3>누락 확인</h3><p>어떤 영수증이 저장됐고 빠졌는지 한눈에 보기 어렵습니다.</p></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="service section" id="service">
+      <div class="shell service-grid">
+        <div class="service-mark reveal">
+          <div class="large-mark"><span>R</span><i></i></div>
+          <p>RECEIPT BOT<br><strong>영수증봇</strong></p>
+        </div>
+        <div class="service-copy reveal">
+          <p class="eyebrow"><span></span> FIRST PRODUCT</p>
+          <h2>보내고, 확인하고,<br><em>필요할 때 꺼내세요.</em></h2>
+          <p>영수증봇은 카카오톡에서 영수증을 접수하고 추출된 내용을 확인한 뒤 저장할 수 있는 업무 보조 서비스입니다. 저장된 내역은 기간별로 정리해 엑셀 보고서로 만들 수 있습니다.</p>
+          <div class="status-chip"><span></span> 현재 MVP 개발·검증 중</div>
+        </div>
+      </div>
+    </section>
+
+    <section class="how section" id="how">
+      <div class="shell">
+        <div class="center-heading reveal">
+          <p class="eyebrow dark"><span></span> HOW IT WORKS</p>
+          <h2>세 단계면 충분합니다.</h2>
+        </div>
+        <ol class="steps">
+          <li class="reveal">
+            <span class="step-number">01</span>
+            <div class="step-icon">▧</div>
+            <h3>영수증 전송</h3>
+            <p>카카오톡으로 영수증 이미지를 보냅니다.</p>
+          </li>
+          <li class="reveal">
+            <span class="step-number">02</span>
+            <div class="step-icon">⌕</div>
+            <h3>내용 확인</h3>
+            <p>상호·금액·날짜 등 추출 내용을 확인하고 수정합니다.</p>
+          </li>
+          <li class="reveal">
+            <span class="step-number">03</span>
+            <div class="step-icon">↗</div>
+            <h3>저장·보고서</h3>
+            <p>확정된 내역을 저장하고 필요할 때 엑셀로 받습니다.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="product-screens section" id="screens">
+      <div class="shell">
+        <div class="screen-heading reveal">
+          <div>
+            <p class="eyebrow dark"><span></span> PRODUCT FLOW</p>
+            <h2>실제 구현 흐름을<br>화면으로 확인하세요.</h2>
+          </div>
+          <p><b>MVP 구현 기능 기반</b><br>카카오톡 접수, 저장 전 확인·수정, 엑셀 보고서 흐름을 실제 필드와 상태에 맞춰 재현했습니다.</p>
+        </div>
+
+        <div class="screen-showcase">
+          <article class="screen-item reveal">
+            <div class="screen-meta"><span>01</span><div><strong>영수증 접수</strong><small>카카오톡 대화</small></div></div>
+            <div class="screen-device mobile-screen">
+              <div class="capture-bar"><span>9:41</span><b>● ●</b></div>
+              <div class="capture-title">
+                <div class="mini-logo">R<i></i></div>
+                <div><strong>영수증봇</strong><small>리로웍스 · 응답 가능</small></div>
+              </div>
+              <div class="capture-chat">
+                <p class="capture-date">2026년 7월 24일</p>
+                <div class="capture-receipt">
+                  <b>리로카페</b><span>2026.07.24 12:18</span>
+                  <i></i><i></i><i></i>
+                  <strong>합계 48,500원</strong>
+                </div>
+                <div class="capture-bubble">
+                  영수증을 읽었어요. 아래 내용을 확인해 주세요.
+                  <dl>
+                    <div><dt>상호명</dt><dd>리로카페</dd></div>
+                    <div><dt>금액</dt><dd>48,500원</dd></div>
+                    <div><dt>날짜</dt><dd>2026-07-24</dd></div>
+                    <div><dt>분류</dt><dd>업무비</dd></div>
+                  </dl>
+                </div>
+                <div class="capture-buttons"><span>저장</span><span>수정</span><span>확인</span></div>
+              </div>
+            </div>
+            <p class="screen-caption">영수증 이미지를 전송하면 주요 항목을 추출해 확인 가능한 형태로 응답합니다.</p>
+          </article>
+
+          <article class="screen-item screen-item-raised reveal">
+            <div class="screen-meta"><span>02</span><div><strong>확인 및 수정</strong><small>저장 전 검토</small></div></div>
+            <div class="screen-device review-screen">
+              <div class="window-bar"><i></i><i></i><i></i><span>receipt.review</span></div>
+              <div class="review-head">
+                <div><small>검토 중인 영수증</small><strong>추출 결과 확인</strong></div>
+                <span class="review-state">저장 전</span>
+              </div>
+              <div class="review-confidence"><span>인식 신뢰도</span><b>92%</b><i><em></em></i></div>
+              <div class="review-fields">
+                <label><span>상호명</span><strong>리로카페</strong></label>
+                <div>
+                  <label><span>날짜</span><strong>2026-07-24</strong></label>
+                  <label><span>금액</span><strong>48,500원</strong></label>
+                </div>
+                <div>
+                  <label><span>증빙 유형</span><strong>카드전표</strong></label>
+                  <label><span>구분</span><strong>사업</strong></label>
+                </div>
+                <label><span>카테고리</span><strong>업무비⌄</strong></label>
+              </div>
+              <div class="review-actions"><button type="button">다시 수정</button><button type="button">확인 후 저장</button></div>
+            </div>
+            <p class="screen-caption">자동 추출 결과를 그대로 확정하지 않고 저장 전에 주요 항목을 확인·수정합니다.</p>
+          </article>
+
+          <article class="screen-item reveal">
+            <div class="screen-meta"><span>03</span><div><strong>월별 보고서</strong><small>엑셀 내보내기</small></div></div>
+            <div class="screen-device report-screen">
+              <div class="window-bar"><i></i><i></i><i></i><span>2026-07_report.xlsx</span></div>
+              <div class="report-head"><div><small>2026년 7월</small><strong>영수증 내역</strong></div><button type="button">Excel ↓</button></div>
+              <div class="report-summary">
+                <div><span>총 지출</span><b>481,300원</b></div>
+                <div><span>영수증</span><b>6건</b></div>
+              </div>
+              <div class="report-table">
+                <div class="report-row report-label"><span>날짜</span><span>상호</span><span>분류</span><span>금액</span></div>
+                <div class="report-row"><span>07.24</span><span>리로카페</span><span>업무비</span><span>48,500</span></div>
+                <div class="report-row"><span>07.22</span><span>모빌리티</span><span>교통비</span><span>19,600</span></div>
+                <div class="report-row"><span>07.19</span><span>클라우드</span><span>통신비</span><span>49,500</span></div>
+                <div class="report-row"><span>07.16</span><span>프린트</span><span>광고비</span><span>132,000</span></div>
+              </div>
+              <p class="report-foot">확인된 내역만 보고서에 포함됩니다.</p>
+            </div>
+            <p class="screen-caption">확인 완료된 내역을 기간별로 정리해 엑셀 파일로 생성하고 내려받습니다.</p>
+          </article>
+        </div>
+
+        <div class="screen-disclaimer reveal">
+          <span>안내</span>
+          <p>위 화면은 현재 MVP에 구현된 데이터 항목과 처리 순서를 홈페이지에서 보기 쉽게 재현한 것입니다. 실제 카카오톡 및 엑셀 화면은 사용 환경과 버전에 따라 달라질 수 있습니다.</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="features section" id="features">
+      <div class="shell">
+        <div class="features-head reveal">
+          <div><p class="eyebrow dark"><span></span> CORE FEATURES</p><h2>실무에 필요한 기능부터.</h2></div>
+          <p>과장된 약속보다 현재 구현·검증 중인 핵심 흐름을 투명하게 소개합니다.</p>
+        </div>
+        <div class="feature-grid">
+          <article class="feature-card feature-wide reveal"><span>01</span><div><h3>영수증 이미지 접수</h3><p>카카오톡의 안전한 이미지 전달 흐름을 이용해 영수증을 접수합니다.</p></div><b>RECEIVE</b></article>
+          <article class="feature-card reveal"><span>02</span><div><h3>정보 추출</h3><p>상호, 금액, 날짜, 증빙 유형 등 주요 항목을 추출합니다.</p></div><b>EXTRACT</b></article>
+          <article class="feature-card reveal"><span>03</span><div><h3>확인 및 수정</h3><p>자동 추출 결과를 저장하기 전에 직접 확인하고 수정합니다.</p></div><b>REVIEW</b></article>
+          <article class="feature-card reveal"><span>04</span><div><h3>중복 확인</h3><p>같은 영수증이 반복 저장되는 상황을 줄이도록 확인합니다.</p></div><b>CHECK</b></article>
+          <article class="feature-card feature-wide reveal"><span>05</span><div><h3>월별 엑셀 보고서</h3><p>저장한 영수증 내역을 기간별로 정리한 엑셀 파일로 생성합니다.</p></div><b>REPORT</b></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="audience section">
+      <div class="shell audience-grid">
+        <div class="audience-copy reveal">
+          <p class="eyebrow"><span></span> FOR SMALL TEAMS</p>
+          <h2>영수증 정리가<br><em>본업이 아닌 분들을 위해.</em></h2>
+        </div>
+        <div class="audience-list reveal">
+          <div><span>01</span><p>1인 사업자와 프리랜서</p></div>
+          <div><span>02</span><p>소규모 사업장과 초기 팀</p></div>
+          <div><span>03</span><p>출장·외근이 많은 실무자</p></div>
+          <div><span>04</span><p>반복 입력을 줄이고 싶은 담당자</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="faq section">
+      <div class="shell faq-grid">
+        <div class="section-heading reveal">
+          <p class="eyebrow dark"><span></span> FAQ</p>
+          <h2>먼저 확인해 주세요.</h2>
+        </div>
+        <div class="faq-list reveal">
+          <details>
+            <summary>지금 바로 사용할 수 있나요?<span></span></summary>
+            <p>현재 영수증봇은 MVP 기능을 개발하고 검증하는 단계입니다. 실제 도입 가능 시점과 테스트 참여는 문의를 통해 안내해 드립니다.</p>
+          </details>
+          <details>
+            <summary>추출된 정보가 틀리면 어떻게 하나요?<span></span></summary>
+            <p>저장 전에 상호, 금액, 날짜, 분류 등 주요 항목을 확인하고 수정할 수 있도록 설계했습니다.</p>
+          </details>
+          <details>
+            <summary>어떤 형식으로 내보낼 수 있나요?<span></span></summary>
+            <p>현재는 기간별 영수증 내역을 엑셀(.xlsx) 보고서로 생성하는 기능을 제공합니다.</p>
+          </details>
+          <details>
+            <summary>요금은 얼마인가요?<span></span></summary>
+            <p>정식 요금제는 아직 확정되지 않았습니다. 사용 범위와 운영 비용을 검증한 뒤 투명하게 안내할 예정입니다.</p>
+          </details>
+        </div>
+      </div>
+    </section>
+
+    <section class="contact section" id="contact">
+      <div class="shell contact-grid">
+        <div class="contact-copy reveal">
+          <p class="eyebrow"><span></span> CONTACT</p>
+          <h2>반복 업무를 줄일<br>방법을 찾고 계신가요?</h2>
+          <p>영수증봇은 현재 MVP 개발·검증 단계입니다. 테스트 참여, 도입 가능 여부, 협업에 관해 편하게 문의해 주세요.</p>
+          <div class="representative">
+            <span>대표</span>
+            <strong>함용길</strong>
+            <a href="tel:01029208875">010-2920-8875</a>
+            <a href="mailto:reromoon@naver.com">reromoon@naver.com</a>
+          </div>
+        </div>
+        <form class="contact-form reveal" data-contact-form novalidate>
+          <label class="honeypot" aria-hidden="true">웹사이트<input name="website" tabindex="-1" autocomplete="off"></label>
+          <div class="field-row">
+            <label>이름 또는 업체명<input name="name" autocomplete="name" required placeholder="성함 또는 업체명"></label>
+            <label>연락처<input name="contact" autocomplete="tel" required placeholder="전화번호 또는 이메일"></label>
+          </div>
+          <label>문의 내용<textarea name="message" rows="5" required placeholder="궁금한 내용이나 필요한 업무를 알려주세요."></textarea></label>
+          <label class="consent"><input type="checkbox" name="privacy_consent" required><span>문의 처리를 위한 개인정보 수집에 동의합니다. <a href="./privacy.html">내용 보기</a></span></label>
+          <button class="button button-primary form-submit" type="submit">영수증봇 테스트 문의 <span>↗</span></button>
+          <p class="form-status" data-form-status role="status" aria-live="polite"></p>
+          <p class="form-note">서버 장애 시 <a href="mailto:reromoon@naver.com">reromoon@naver.com</a>으로 직접 문의할 수 있습니다.</p>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="shell footer-top">
+      <a class="brand footer-brand" href="#top"><img src="./assets/brand/rero-works-web-transparent.png" alt="RERO WORKS 리로웍스"></a>
+      <p>반복되는 실무를 단순하게 만드는 기술회사</p>
+      <a class="to-top" href="#top" aria-label="맨 위로">↑</a>
+    </div>
+    <div class="shell footer-bottom">
+      <p>리로웍스 · 대표 함용길 · 010-2920-8875 · reromoon@naver.com</p>
+      <div><a href="./privacy.html">개인정보처리방침</a><a href="./terms.html">서비스 이용 안내</a></div>
+      <p>© 2026 RERO WORKS</p>
+    </div>
+  </footer>
+</body>
+</html>

@@ -57,6 +57,26 @@ def init_db() -> None:
                 "CREATE INDEX IF NOT EXISTS idx_receipts_user_image_hash "
                 "ON receipts(kakao_user_id, image_sha256)"
             )
+            conn.execute(
+                """
+                CREATE TABLE IF NOT EXISTS inquiries (
+                    id BIGSERIAL PRIMARY KEY,
+                    reference TEXT NOT NULL UNIQUE,
+                    name TEXT NOT NULL,
+                    contact TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    client_hash TEXT NOT NULL,
+                    status TEXT NOT NULL DEFAULT 'new',
+                    email_status TEXT NOT NULL DEFAULT 'pending',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """
+            )
+            conn.execute(
+                "CREATE INDEX IF NOT EXISTS idx_inquiries_hash_created "
+                "ON inquiries(client_hash, created_at)"
+            )
         return
 
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
@@ -104,6 +124,26 @@ def init_db() -> None:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_receipts_user_image_hash "
             "ON receipts(kakao_user_id, image_sha256)"
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS inquiries (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                reference TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                contact TEXT NOT NULL,
+                message TEXT NOT NULL,
+                client_hash TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'new',
+                email_status TEXT NOT NULL DEFAULT 'pending',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_inquiries_hash_created "
+            "ON inquiries(client_hash, created_at)"
         )
 
 
@@ -298,6 +338,70 @@ def delete_latest_receipt(kakao_user_id: str) -> Mapping[str, Any] | None:
                 (row["id"], kakao_user_id),
             )
         return row
+
+
+def create_inquiry(
+    reference: str,
+    name: str,
+    contact: str,
+    message: str,
+    client_hash: str,
+) -> None:
+    now = datetime.now(UTC).isoformat()
+    with _connect() as conn:
+        conn.execute(
+            _sql(
+                """
+                INSERT INTO inquiries
+                    (reference, name, contact, message, client_hash, status,
+                     email_status, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, 'new', 'pending', ?, ?)
+                """
+            ),
+            (reference, name, contact, message, client_hash, now, now),
+        )
+
+
+def get_inquiry(reference: str) -> Mapping[str, Any] | None:
+    with _connect() as conn:
+        return conn.execute(
+            _sql("SELECT * FROM inquiries WHERE reference = ?"),
+            (reference,),
+        ).fetchone()
+
+
+def count_recent_inquiries(client_hash: str, since: str) -> int:
+    with _connect() as conn:
+        row = conn.execute(
+            _sql(
+                "SELECT COUNT(*) AS inquiry_count FROM inquiries "
+                "WHERE client_hash = ? AND created_at >= ?"
+            ),
+            (client_hash, since),
+        ).fetchone()
+        return int(row["inquiry_count"])
+
+
+def update_inquiry_email_status(reference: str, email_status: str) -> None:
+    if email_status not in {"pending", "sent", "failed"}:
+        raise ValueError("invalid inquiry email status")
+    with _connect() as conn:
+        conn.execute(
+            _sql(
+                "UPDATE inquiries SET email_status = ?, updated_at = ? "
+                "WHERE reference = ?"
+            ),
+            (email_status, datetime.now(UTC).isoformat(), reference),
+        )
+
+
+def delete_expired_inquiries(cutoff: str) -> int:
+    with _connect() as conn:
+        cursor = conn.execute(
+            _sql("DELETE FROM inquiries WHERE created_at < ?"),
+            (cutoff,),
+        )
+        return max(cursor.rowcount, 0)
 
 
 def _placeholder() -> str:

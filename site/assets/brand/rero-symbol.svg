@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 120 120" role="img" aria-labelledby="title desc">
+  <title id="title">리로웍스 R 체크 심볼</title>
+  <desc id="desc">기하학적인 R과 청록색 체크 표시를 결합한 리로웍스 심볼</desc>
+  <path d="M18 102V27c0-9 6-15 15-15h29c20 0 34 12 34 30S82 72 62 72H33"
+    fill="none" stroke="#101419" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M62 72 91 102" fill="none" stroke="#101419" stroke-width="11" stroke-linecap="round"/>
+  <path d="m63 91 14 13 29-29" fill="none" stroke="#16B8AE" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

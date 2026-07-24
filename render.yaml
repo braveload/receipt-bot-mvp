@@ -1,0 +1,37 @@
+services:
+  - type: web
+    name: receipt-bot-mvp
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: false
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.8
+      - key: EXTRACTOR
+        value: google
+      - key: GOOGLE_VISION_API_KEY
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: PUBLIC_BASE_URL
+        value: https://receipt-bot-mvp-sg.onrender.com
+      - key: REPORT_SIGNING_SECRET
+        generateValue: true
+      - key: REPORT_LINK_TTL_SECONDS
+        value: "600"
+      - key: STORE_RECEIPT_IMAGES
+        value: "true"
+      - key: CONTACT_EMAIL_TO
+        value: reromoon@naver.com
+      - key: SMTP_HOST
+        value: smtp.naver.com
+      - key: SMTP_PORT
+        value: "465"
+      - key: SMTP_USERNAME
+        sync: false
+      - key: SMTP_PASSWORD
+        sync: false
+      - key: CONTACT_HASH_SECRET
+        generateValue: true
