@@ -109,6 +109,28 @@ def download_private_image(image_url: str) -> tuple[bytes, str]:
     """검증된 원본 이미지를 비공개 저장용으로 내려받는다."""
     return _download_image(image_url)
 
+
+def _downscale_for_ocr(image: bytes, media_type: str, max_dimension: int = 1600) -> tuple[bytes, str]:
+    """OCR 요청 전 이미지를 축소해 카카오 5초 SLA 안에 처리되도록 한다."""
+    try:
+        import io
+
+        from PIL import Image
+    except ImportError:
+        return image, media_type
+    try:
+        with Image.open(io.BytesIO(image)) as img:
+            if max(img.size) <= max_dimension:
+                return image, media_type
+            img = img.convert("RGB")
+            img.thumbnail((max_dimension, max_dimension), Image.LANCZOS)
+            buffer = io.BytesIO()
+            img.save(buffer, format="JPEG", quality=85)
+            return buffer.getvalue(), "image/jpeg"
+    except Exception:
+        return image, media_type
+
+
 RECEIPT_JSON_SCHEMA_PROMPT = """\
 당신은 한국 영수증/세금계산서 이미지를 읽고 정형 데이터로 변환하는 전문가입니다.
 이미지를 보고 아래 JSON 스키마에 맞춰 **JSON만** 출력하세요. 설명 문장은 절대 추가하지 마세요.
@@ -177,6 +199,7 @@ class ClaudeVisionExtractor(ReceiptExtractor):
         return self.extract_bytes(image, media_type)
 
     def extract_bytes(self, image: bytes, media_type: str) -> ReceiptData:
+        image, media_type = _downscale_for_ocr(image, media_type)
         image_b64 = base64.b64encode(image).decode("utf-8")
 
         message = self._client.messages.create(
@@ -403,7 +426,8 @@ class GoogleVisionExtractor(ReceiptExtractor):
         image, media_type = _download_image(image_url)
         return self.extract_bytes(image, media_type)
 
-    def extract_bytes(self, image: bytes, media_type: str) -> ReceiptData:  # noqa: ARG002
+    def extract_bytes(self, image: bytes, media_type: str) -> ReceiptData:
+        image, media_type = _downscale_for_ocr(image, media_type)
         image_b64 = base64.b64encode(image).decode("utf-8")
         text = self._ocr_text(image_b64)
         return parse_receipt_text(text)
