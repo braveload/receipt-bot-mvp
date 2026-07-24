@@ -30,3 +30,13 @@ def test_short_category_keyword_does_not_match_inside_another_word():
 def test_empty_ocr_result_is_rejected():
     with pytest.raises(ExtractionError):
         parse_receipt_text("   ")
+
+
+def test_supply_and_vat_are_extracted_when_labeled():
+    data = parse_receipt_text(
+        "테스트상점\n공급가액 10,000\n부가세 1,000\n합계 11,000\n2026-07-24"
+    )
+
+    assert data.amount == 11000
+    assert data.supply_amount == 10000
+    assert data.vat_amount == 1000

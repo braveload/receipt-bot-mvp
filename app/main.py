@@ -44,6 +44,8 @@ storage.init_db()  # 모듈 로드 시점에 즉시 실행 (TestClient를 컨텍
 EDITABLE_FIELDS = {
     "상호명": "merchant",
     "금액": "amount",
+    "공급가액": "supply_amount",
+    "부가세": "vat_amount",
     "날짜": "date",
     "증빙유형": "doc_type",
     "카테고리": "category",
@@ -61,7 +63,7 @@ def _log_user_id(user_id: str) -> str:
 
 
 def _format_receipt(row) -> str:
-    return (
+    text = (
         f"상호명: {row['merchant']}\n"
         f"금액: {row['amount']:,}원\n"
         f"날짜: {row['date']}\n"
@@ -69,6 +71,11 @@ def _format_receipt(row) -> str:
         f"카테고리: {row['category']}\n"
         f"구분: {row['biz_or_personal']}"
     )
+    if row["supply_amount"] is not None:
+        text += f"\n공급가액: {row['supply_amount']:,}원"
+    if row["vat_amount"] is not None:
+        text += f"\n부가세: {row['vat_amount']:,}원"
+    return text
 
 
 def _parse_corrections(utterance: str) -> dict[str, object]:
@@ -84,10 +91,13 @@ def _parse_corrections(utterance: str) -> dict[str, object]:
         if not field or not raw_value:
             raise ValueError(f"수정할 수 없는 항목입니다: {label}")
         value: object = raw_value
-        if field == "amount":
+        if field in {"amount", "supply_amount", "vat_amount"}:
             digits = raw_value.replace(",", "").removesuffix("원").strip()
-            if not digits.isdigit() or int(digits) <= 0:
-                raise ValueError("금액은 0보다 큰 숫자로 입력해주세요.")
+            minimum = 1 if field == "amount" else 0
+            if not digits.isdigit() or int(digits) < minimum:
+                if field == "amount":
+                    raise ValueError("금액은 0보다 큰 숫자로 입력해주세요.")
+                raise ValueError("공급가액과 부가세는 0 이상의 숫자로 입력해주세요.")
             value = int(digits)
         elif field == "date":
             try:
@@ -102,6 +112,17 @@ def _parse_corrections(utterance: str) -> dict[str, object]:
             raise ValueError("구분은 '사업' 또는 '개인'으로 입력해주세요.")
         changes[field] = value
     return changes
+
+
+def _tax_total_error(row) -> str | None:
+    supply = row["supply_amount"]
+    vat = row["vat_amount"]
+    if supply is not None and vat is not None and supply + vat != row["amount"]:
+        return (
+            f"공급가액({supply:,}원)과 부가세({vat:,}원)의 합계가 "
+            f"총액({row['amount']:,}원)과 다릅니다. 수정 후 저장해주세요."
+        )
+    return None
 
 
 def _report_signature(user_id: str, month: str, expires: int) -> str:
@@ -165,7 +186,17 @@ async def kakao_webhook(request: Request, x_webhook_secret: str | None = Header(
             # 없는 경우처럼, 추출기 생성 자체가 실패해도(RuntimeError) 500 대신 친절한 안내가
             # 나가도록 한다. (이전에는 get_extractor()가 try 밖에 있어 이 경우 500이었음 — 수정)
             extractor = get_extractor()
-            data = extractor.extract(image_url)
+            if image_content is not None:
+                duplicate = storage.find_receipt_by_image(user_id, image_content)
+                if duplicate is not None:
+                    return JSONResponse(
+                        kakao_adapter.build_simple_text_response(
+                            "이미 등록한 영수증이에요.\n\n" + _format_receipt(duplicate)
+                        )
+                    )
+                data = extractor.extract_bytes(image_content, image_content_type)
+            else:
+                data = extractor.extract(image_url)
         except ExtractionError as exc:
             # 모델이 이상한 응답을 준 경우 — 500 대신 사용자에게 친절하게 안내하고 로그만 남김
             print(f"[extract-error] user_hash={_log_user_id(user_id)} err={exc}")
@@ -214,7 +245,7 @@ async def kakao_webhook(request: Request, x_webhook_secret: str | None = Header(
             text = (
                 "수정할 내용을 아래 형식으로 보내주세요.\n"
                 "수정 상호명=새 상호명; 금액=5000; 날짜=2026-07-20; "
-                "카테고리=소모품비; 구분=사업\n"
+                "공급가액=4545; 부가세=455; 카테고리=소모품비; 구분=사업\n"
                 "바꿀 항목만 입력하면 됩니다."
             )
         return JSONResponse(kakao_adapter.build_simple_text_response(text))
@@ -231,11 +262,40 @@ async def kakao_webhook(request: Request, x_webhook_secret: str | None = Header(
         return JSONResponse(kakao_adapter.build_simple_text_response(text, ["저장", "수정", "확인"]))
 
     if utterance == "저장":
+        pending = storage.get_pending_receipt(user_id)
+        tax_error = _tax_total_error(pending) if pending else None
+        if tax_error:
+            return JSONResponse(
+                kakao_adapter.build_simple_text_response(tax_error, ["수정", "확인"])
+            )
         saved = storage.confirm_pending_receipt(user_id)
         text = (
             "저장 완료했어요. ✅\n\n" + _format_receipt(saved)
             if saved
             else "저장할 영수증이 없어요. 먼저 영수증 사진을 보내주세요."
+        )
+        return JSONResponse(kakao_adapter.build_simple_text_response(text))
+
+    if utterance == "삭제":
+        receipts = storage.get_all_receipts(user_id)
+        if not receipts:
+            text = "삭제할 저장 영수증이 없어요."
+            replies = None
+        else:
+            text = (
+                "가장 최근에 저장한 아래 영수증을 영구 삭제할까요?\n\n"
+                + _format_receipt(receipts[-1])
+                + "\n\n삭제하려면 '삭제확정'이라고 입력해주세요."
+            )
+            replies = ["삭제확정"]
+        return JSONResponse(kakao_adapter.build_simple_text_response(text, replies))
+
+    if utterance == "삭제확정":
+        deleted = storage.delete_latest_receipt(user_id)
+        text = (
+            "영수증과 저장된 원본 이미지를 삭제했어요."
+            if deleted
+            else "삭제할 저장 영수증이 없어요."
         )
         return JSONResponse(kakao_adapter.build_simple_text_response(text))
 

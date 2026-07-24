@@ -103,7 +103,9 @@ RECEIPT_JSON_SCHEMA_PROMPT = """\
   "category": "광고비" | "접대비" | "소모품비" | "통신비" | "교통비" | "식비" | "임차료" | "기타" 중 가장 적절한 값,
   "biz_or_personal": "사업" | "개인" 중 하나 (카페/식당의 소액 결제는 접대비 가능성 고려, 애매하면 "개인"),
   "biz_reg_no": "사업자등록번호 (하이픈 포함, 없으면 null)",
-  "confidence": 0.0~1.0 사이 실수 (추출 확신도)
+  "confidence": 0.0~1.0 사이 실수 (추출 확신도),
+  "supply_amount": 공급가액 정수 (없으면 null),
+  "vat_amount": 부가세 정수 (없으면 null)
 }
 """
 
@@ -112,6 +114,10 @@ class ReceiptExtractor(ABC):
     @abstractmethod
     def extract(self, image_url: str) -> ReceiptData:
         ...
+
+    def extract_bytes(self, image: bytes, media_type: str) -> ReceiptData:
+        """이미 내려받은 이미지를 추출한다."""
+        raise NotImplementedError
 
 
 class MockReceiptExtractor(ReceiptExtractor):
@@ -131,6 +137,9 @@ class MockReceiptExtractor(ReceiptExtractor):
     def extract(self, image_url: str) -> ReceiptData:  # noqa: ARG002 (url 미사용, 데모용)
         return next(self._cycle)
 
+    def extract_bytes(self, image: bytes, media_type: str) -> ReceiptData:  # noqa: ARG002
+        return next(self._cycle)
+
 
 class ClaudeVisionExtractor(ReceiptExtractor):
     """실서비스용. Anthropic API로 이미지 한 장에서 바로 추출+분류. (유료)"""
@@ -145,12 +154,12 @@ class ClaudeVisionExtractor(ReceiptExtractor):
         self._client = anthropic.Anthropic(api_key=api_key or os.environ.get("ANTHROPIC_API_KEY"))
         self._model = model
 
-    def _download_image_b64(self, image_url: str) -> tuple[str, str]:
-        image, content_type = _download_image(image_url)
-        return base64.b64encode(image).decode("utf-8"), content_type
-
     def extract(self, image_url: str) -> ReceiptData:
-        image_b64, media_type = self._download_image_b64(image_url)
+        image, media_type = _download_image(image_url)
+        return self.extract_bytes(image, media_type)
+
+    def extract_bytes(self, image: bytes, media_type: str) -> ReceiptData:
+        image_b64 = base64.b64encode(image).decode("utf-8")
 
         message = self._client.messages.create(
             model=self._model,
@@ -188,6 +197,8 @@ class ClaudeVisionExtractor(ReceiptExtractor):
                 biz_or_personal=data["biz_or_personal"],
                 biz_reg_no=data.get("biz_reg_no"),
                 confidence=float(data.get("confidence", 0.0)),
+                supply_amount=_optional_int(data.get("supply_amount")),
+                vat_amount=_optional_int(data.get("vat_amount")),
             )
         except (KeyError, ValueError, TypeError) as exc:
             raise ExtractionError(f"필수 필드 누락/형식 오류: {data}") from exc
@@ -213,6 +224,24 @@ _CATEGORY_KEYWORDS = {
     "소모품비": ["문구", "다이소", "교보문고", "오피스", "이마트", "홈플러스"],
     "식비": ["배달", "배달의민족", "요기요", "쿠팡이츠", "김밥", "분식", "편의점", "gs25", "cu", "세븐일레븐", "이마트24"],
 }
+
+
+def _optional_int(value: object) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(str(value).replace(",", ""))
+
+
+def _guess_labeled_amount(text: str, keywords: tuple[str, ...]) -> int | None:
+    lines = text.splitlines()
+    for index, line in enumerate(lines):
+        if any(keyword in line for keyword in keywords):
+            values = _AMOUNT_PATTERN.findall(line)
+            if not values and index + 1 < len(lines):
+                values = _AMOUNT_PATTERN.findall(lines[index + 1])
+            if values:
+                return int(values[-1].replace(",", ""))
+    return None
 
 
 def _guess_merchant(text: str) -> str:
@@ -309,6 +338,8 @@ def parse_receipt_text(text: str) -> ReceiptData:
         biz_or_personal="사업" if biz_reg_match else "개인",
         biz_reg_no=biz_reg_match.group(0) if biz_reg_match else None,
         confidence=0.5,
+        supply_amount=_guess_labeled_amount(text, ("공급가액", "공급대가")),
+        vat_amount=_guess_labeled_amount(text, ("부가세", "부가가치세", "VAT")),
     )
 
 
@@ -323,10 +354,6 @@ class GoogleVisionExtractor(ReceiptExtractor):
         self._api_key = api_key or os.environ.get("GOOGLE_VISION_API_KEY")
         if not self._api_key:
             raise RuntimeError("GOOGLE_VISION_API_KEY 환경변수 필요")
-
-    def _download_image_b64(self, image_url: str) -> str:
-        image, _ = _download_image(image_url)
-        return base64.b64encode(image).decode("utf-8")
 
     def _ocr_text(self, image_b64: str) -> str:
         import httpx
@@ -355,7 +382,11 @@ class GoogleVisionExtractor(ReceiptExtractor):
         return full_text
 
     def extract(self, image_url: str) -> ReceiptData:
-        image_b64 = self._download_image_b64(image_url)
+        image, media_type = _download_image(image_url)
+        return self.extract_bytes(image, media_type)
+
+    def extract_bytes(self, image: bytes, media_type: str) -> ReceiptData:  # noqa: ARG002
+        image_b64 = base64.b64encode(image).decode("utf-8")
         text = self._ocr_text(image_b64)
         return parse_receipt_text(text)
 

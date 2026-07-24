@@ -14,6 +14,8 @@ def test_backup_restore_round_trip(tmp_path):
             category="소모품비",
             biz_or_personal="사업",
             confidence=0.9,
+            supply_amount=10909,
+            vat_amount=1091,
         ),
         image_content=image,
         image_content_type="image/jpeg",
@@ -27,6 +29,8 @@ def test_backup_restore_round_trip(tmp_path):
     assert restored == 1
     assert rows[0]["merchant"] == "백업상점"
     assert rows[0]["image_content"] == image
+    assert rows[0]["supply_amount"] == 10909
+    assert rows[0]["vat_amount"] == 1091
     assert len(rows[0]["image_sha256"]) == 64
 
 

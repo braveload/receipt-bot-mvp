@@ -28,6 +28,8 @@ BACKUP_COLUMNS = (
     "image_content",
     "image_content_type",
     "image_sha256",
+    "supply_amount",
+    "vat_amount",
     "status",
     "created_at",
     "updated_at",

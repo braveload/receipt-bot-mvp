@@ -37,7 +37,10 @@ def build_monthly_summary_text(kakao_user_id: str, yyyy_mm: str) -> str:
     )
 
 
-HEADER = ["일자", "상호명", "금액", "증빙유형", "카테고리", "사업/개인", "사업자등록번호", "추출 신뢰도"]
+HEADER = [
+    "일자", "상호명", "금액", "공급가액", "부가세", "증빙유형",
+    "카테고리", "사업/개인", "사업자등록번호", "추출 신뢰도",
+]
 
 
 def export_to_excel(kakao_user_id: str, out_path: Path, yyyy_mm: str | None = None) -> Path:
@@ -66,6 +69,8 @@ def export_to_excel(kakao_user_id: str, out_path: Path, yyyy_mm: str | None = No
                 r["date"],
                 r["merchant"],
                 r["amount"],
+                r["supply_amount"] if r["supply_amount"] is not None else "",
+                r["vat_amount"] if r["vat_amount"] is not None else "",
                 r["doc_type"],
                 r["category"],
                 r["biz_or_personal"],
