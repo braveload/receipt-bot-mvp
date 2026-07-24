@@ -11,27 +11,41 @@ from openpyxl.utils import get_column_letter
 from . import storage
 
 
-def build_monthly_summary_text(kakao_user_id: str, yyyy_mm: str) -> str:
-    """카카오톡으로 보낼 월간 요약 메시지 (설계서 5.1 '월간 요약 리포트')."""
+def build_monthly_summary_data(kakao_user_id: str, yyyy_mm: str) -> dict:
+    """월간 요약의 구조화된 데이터 (웹/앱 API용). 카톡 텍스트 요약도 이 값을 재사용한다."""
     rows = storage.get_receipts_for_month(kakao_user_id, yyyy_mm)
-
-    if not rows:
-        return f"{yyyy_mm}에는 아직 등록된 영수증이 없어요. 사진을 보내주시면 자동으로 정리해드릴게요!"
 
     biz_total = sum(r["amount"] for r in rows if r["biz_or_personal"] == "사업")
     personal_total = sum(r["amount"] for r in rows if r["biz_or_personal"] == "개인")
     by_category: dict[str, int] = {}
     for r in rows:
         by_category[r["category"]] = by_category.get(r["category"], 0) + r["amount"]
+    top_categories = sorted(by_category.items(), key=lambda kv: kv[1], reverse=True)
 
-    top_categories = sorted(by_category.items(), key=lambda kv: kv[1], reverse=True)[:3]
-    category_lines = "\n".join(f"  · {cat}: {amt:,}원" for cat, amt in top_categories)
+    return {
+        "month": yyyy_mm,
+        "count": len(rows),
+        "biz_total": biz_total,
+        "personal_total": personal_total,
+        "categories": [{"category": cat, "amount": amt} for cat, amt in top_categories],
+    }
+
+
+def build_monthly_summary_text(kakao_user_id: str, yyyy_mm: str) -> str:
+    """카카오톡으로 보낼 월간 요약 메시지 (설계서 5.1 '월간 요약 리포트')."""
+    data = build_monthly_summary_data(kakao_user_id, yyyy_mm)
+
+    if data["count"] == 0:
+        return f"{yyyy_mm}에는 아직 등록된 영수증이 없어요. 사진을 보내주시면 자동으로 정리해드릴게요!"
+
+    top3 = data["categories"][:3]
+    category_lines = "\n".join(f"  · {c['category']}: {c['amount']:,}원" for c in top3)
 
     return (
         f"[{yyyy_mm} 지출 요약]\n"
-        f"총 {len(rows)}건 처리했어요.\n\n"
-        f"인정 가능 경비(사업): {biz_total:,}원\n"
-        f"개인 지출: {personal_total:,}원\n\n"
+        f"총 {data['count']}건 처리했어요.\n\n"
+        f"인정 가능 경비(사업): {data['biz_total']:,}원\n"
+        f"개인 지출: {data['personal_total']:,}원\n\n"
         f"카테고리 TOP3\n{category_lines}\n\n"
         f"신고철에 세무사 전달용 파일이 필요하면 '신고파일'이라고 보내주세요."
     )
