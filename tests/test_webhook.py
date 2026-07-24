@@ -49,6 +49,34 @@ def test_malformed_json_returns_kakao_response():
     assert "다시 시도" in response_text(response)
 
 
+def test_missing_user_id_does_not_use_shared_fallback_identity():
+    payload = text_payload("안녕")
+    payload["userRequest"]["user"]["properties"] = {}
+
+    response = TestClient(main.app).post("/kakao/webhook", json=payload)
+
+    assert response.status_code == 200
+    assert "사용자 정보를 확인하지 못했어요" in response_text(response)
+
+
+def test_original_image_is_stored_privately(monkeypatch):
+    monkeypatch.setenv("STORE_RECEIPT_IMAGES", "true")
+    monkeypatch.setattr(
+        main,
+        "download_private_image",
+        lambda url: (b"private-receipt-image", "image/jpeg"),
+    )
+
+    response = TestClient(main.app).post("/kakao/webhook", json=image_payload())
+    pending = storage.get_pending_receipt("test-user")
+
+    assert response.status_code == 200
+    assert pending["image_url"] == ""
+    assert pending["image_content"] == b"private-receipt-image"
+    assert pending["image_content_type"] == "image/jpeg"
+    assert len(pending["image_sha256"]) == 64
+
+
 def test_receipt_review_edit_confirm_summary_and_signed_excel(tmp_path, monkeypatch):
     client = TestClient(main.app)
     extracted = client.post("/kakao/webhook", json=image_payload())
@@ -122,7 +150,7 @@ def test_edit_validation_and_no_pending_receipt_messages():
     assert "금액은" in response_text(invalid)
 
 
-def test_extraction_failure_is_user_friendly(monkeypatch):
+def test_extraction_failure_is_user_friendly(monkeypatch, capsys):
     class FailingExtractor:
         def extract(self, image_url):
             raise ExtractionError("forced failure")
@@ -132,6 +160,9 @@ def test_extraction_failure_is_user_friendly(monkeypatch):
 
     assert response.status_code == 200
     assert "실패" in response_text(response)
+    log = capsys.readouterr().out
+    assert "test-user" not in log
+    assert "user_hash=" in log
 
 
 def test_missing_google_key_is_user_friendly(monkeypatch):

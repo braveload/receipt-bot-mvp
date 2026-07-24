@@ -14,6 +14,7 @@ def isolated_runtime(tmp_path, monkeypatch):
     monkeypatch.delenv("WEBHOOK_SECRET", raising=False)
     monkeypatch.delenv("GOOGLE_VISION_API_KEY", raising=False)
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("STORE_RECEIPT_IMAGES", raising=False)
     monkeypatch.setenv("REPORT_SIGNING_SECRET", "test-report-secret")
     monkeypatch.setenv("REPORT_LINK_TTL_SECONDS", "600")
     extractor._EXTRACTOR_SINGLETON = None
