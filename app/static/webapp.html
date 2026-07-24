@@ -235,6 +235,7 @@ document.getElementById("pending-save").addEventListener("click", async () => {
   errorEl.classList.add("hidden");
   const changes = {};
   document.querySelectorAll("#pending-fields [data-field]").forEach((el) => {
+    if (el.value === "") return;
     changes[el.dataset.field] = el.value;
   });
   try {
