@@ -68,8 +68,9 @@ pip install -r requirements-dev.txt
 pytest
 ```
 
-Google Vision 파싱 회귀 사례, 카카오 웹훅, 확인·수정·저장, 오류 응답, 웹훅 시크릿,
-월간 요약, 서명 링크 검증과 만료 처리까지 한 번에 검증합니다. 실제 Google/Anthropic API는 호출하지 않습니다.
+Google Vision 파싱 회귀 사례, 카카오 웹훅, 확인·수정·저장·삭제, 중복 이미지 차단,
+공급가액·부가세 합계 검증, 오류 응답, 웹훅 시크릿, 월간 요약, 서명 링크 검증과
+만료 처리까지 한 번에 검증합니다. 실제 Google/Anthropic API는 호출하지 않습니다.
 
 ## 실제 서버로 띄우기
 
@@ -124,13 +125,13 @@ EXTRACTOR=google GOOGLE_VISION_API_KEY=발급받은키 uvicorn app.main:app --ho
       정확한 필드 경로는 실제 등록 후 확정해야 합니다).
 - [x] **Google Cloud Vision API 키** 발급 및 Render 환경변수 등록
 - [ ] **Anthropic API 키** 발급 — Claude Vision 경로를 선택할 때만 필요
-- [ ] **호스팅**: Render/Railway 등에 배포해 공인 URL 확보
+- [x] **호스팅**: Render 공인 URL 및 UptimeRobot 모니터 연결
 - [ ] **월간 요약 자동 발송**: 현재는 사용자가 "이번달"이라고 물어야 응답하는
       수동(reactive) 방식입니다. 설계서처럼 매달 1회 먼저 보내려면 카카오톡
       채널의 "친구톡/알림톡" API(별도 심사·템플릿 승인 필요)를 추가 연동해야 합니다.
 - [ ] **개인정보 마스킹**: 영수증에 카드번호 뒷자리 등이 찍혀있을 수 있어
       저장 전 마스킹 처리가 필요합니다 (현재 미구현, 설계서 FAQ에 안내된 항목).
-- [ ] **DB 교체**: SQLite는 데모용입니다. 사용자가 늘면 Postgres 등으로 교체 권장.
+- [x] **DB 교체**: 운영은 Neon PostgreSQL, 로컬·테스트는 SQLite 사용.
 - [ ] **웹훅 보호**: `.env`에 `WEBHOOK_SECRET` 값을 넣으면, 요청 헤더
       `X-Webhook-Secret`이 일치할 때만 처리하도록 최소한의 보호가 걸립니다
       (미설정 시에는 검증을 건너뜁니다 — 로컬 데모 편의). 카카오 오픈빌더가
@@ -164,3 +165,7 @@ EXTRACTOR=google GOOGLE_VISION_API_KEY=발급받은키 uvicorn app.main:app --ho
   정확도가 낮습니다 — 위 "무료로 시작하기" 섹션의 한계 참고.
 - 이미지 URL 파싱(`extract_image_url`)은 카카오 실제 계정 연동 후 검증 필요합니다.
 - 신고파일 링크는 최대 1시간 이내에서만 발급되며 기본 만료시간은 10분입니다.
+- 원본 이미지 저장 모드에서는 같은 사용자가 같은 이미지를 다시 보내면 SHA-256으로
+  중복 등록을 차단합니다.
+- `삭제` 후 `삭제확정`을 입력하면 가장 최근 확정 영수증과 원본 이미지가 영구 삭제됩니다.
+  별도로 만든 운영 백업은 30일 이내 폐기하는 정책으로 관리해야 합니다.

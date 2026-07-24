@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 
 from app import main, storage
 from app.extractor import ExtractionError
+from app.models import ReceiptData
 
 
 def image_payload(user_id="test-user", image_url="https://example.com/receipt.jpg"):
@@ -75,6 +76,34 @@ def test_original_image_is_stored_privately(monkeypatch):
     assert pending["image_content"] == b"private-receipt-image"
     assert pending["image_content_type"] == "image/jpeg"
     assert len(pending["image_sha256"]) == 64
+
+
+def test_private_image_is_downloaded_once_and_duplicate_is_blocked(monkeypatch):
+    calls = {"download": 0, "extract_bytes": 0}
+
+    def download(url):
+        calls["download"] += 1
+        return b"same-private-image", "image/jpeg"
+
+    class BytesExtractor:
+        def extract(self, image_url):
+            raise AssertionError("저장 모드에서 URL 재다운로드가 발생했습니다.")
+
+        def extract_bytes(self, image, media_type):
+            calls["extract_bytes"] += 1
+            return ReceiptData("중복상점", 11000, "2026-07-24", "카드전표", "기타", "개인")
+
+    monkeypatch.setenv("STORE_RECEIPT_IMAGES", "true")
+    monkeypatch.setattr(main, "download_private_image", download)
+    monkeypatch.setattr(main, "get_extractor", lambda: BytesExtractor())
+    client = TestClient(main.app)
+
+    first = client.post("/kakao/webhook", json=image_payload(user_id="duplicate-user"))
+    second = client.post("/kakao/webhook", json=image_payload(user_id="duplicate-user"))
+
+    assert first.status_code == 200
+    assert "이미 등록한 영수증" in response_text(second)
+    assert calls == {"download": 2, "extract_bytes": 1}
 
 
 def test_receipt_review_edit_confirm_summary_and_signed_excel(tmp_path, monkeypatch):
@@ -148,6 +177,42 @@ def test_edit_validation_and_no_pending_receipt_messages():
     client.post("/kakao/webhook", json=image_payload())
     invalid = client.post("/kakao/webhook", json=text_payload("수정 금액=abc"))
     assert "금액은" in response_text(invalid)
+
+
+def test_tax_total_must_match_before_save():
+    client = TestClient(main.app)
+    client.post("/kakao/webhook", json=image_payload(user_id="tax-user"))
+    client.post(
+        "/kakao/webhook",
+        json=text_payload("수정 금액=11000; 공급가액=9000; 부가세=1000", user_id="tax-user"),
+    )
+
+    rejected = client.post("/kakao/webhook", json=text_payload("저장", user_id="tax-user"))
+    assert "합계가 총액" in response_text(rejected)
+    assert storage.get_all_receipts("tax-user") == []
+
+    client.post(
+        "/kakao/webhook",
+        json=text_payload("수정 공급가액=10000", user_id="tax-user"),
+    )
+    saved = client.post("/kakao/webhook", json=text_payload("저장", user_id="tax-user"))
+    assert "저장 완료" in response_text(saved)
+
+
+def test_delete_requires_confirmation_and_is_scoped_to_user():
+    client = TestClient(main.app)
+    for user_id in ("delete-user", "other-user"):
+        client.post("/kakao/webhook", json=image_payload(user_id=user_id))
+        client.post("/kakao/webhook", json=text_payload("저장", user_id=user_id))
+
+    warning = client.post("/kakao/webhook", json=text_payload("삭제", user_id="delete-user"))
+    assert "삭제확정" in response_text(warning)
+    assert len(storage.get_all_receipts("delete-user")) == 1
+
+    deleted = client.post("/kakao/webhook", json=text_payload("삭제확정", user_id="delete-user"))
+    assert "삭제했어요" in response_text(deleted)
+    assert storage.get_all_receipts("delete-user") == []
+    assert len(storage.get_all_receipts("other-user")) == 1
 
 
 def test_extraction_failure_is_user_friendly(monkeypatch, capsys):

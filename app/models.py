@@ -15,6 +15,8 @@ class ReceiptData:
     biz_or_personal: str         # "사업" | "개인"
     biz_reg_no: Optional[str] = None   # 사업자등록번호 (있는 경우)
     confidence: float = 0.0      # 추출 신뢰도 0~1 (수동 검수 트리거용)
+    supply_amount: Optional[int] = None
+    vat_amount: Optional[int] = None
 
     def to_dict(self) -> dict:
         return asdict(self)
