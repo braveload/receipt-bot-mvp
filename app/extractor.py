@@ -28,19 +28,68 @@ GoogleVisionExtractor:
 from __future__ import annotations
 
 import base64
+import ipaddress
 import json
 import os
 import re
+import socket
 from abc import ABC, abstractmethod
 from datetime import UTC, datetime
 from itertools import cycle
 from typing import Optional
+from urllib.parse import urlsplit
 
 from .models import ReceiptData
 
 
 class ExtractionError(Exception):
     """영수증 추출 실패 (모델 응답 파싱 실패, 이미지 다운로드 실패 등)."""
+
+
+MAX_IMAGE_BYTES = 10 * 1024 * 1024
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
+
+
+def _validate_public_image_url(image_url: str) -> None:
+    parsed = urlsplit(image_url)
+    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+        raise ExtractionError("이미지는 공개 HTTPS 주소로만 전송할 수 있습니다.")
+
+    try:
+        addresses = {
+            info[4][0]
+            for info in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)
+        }
+    except socket.gaierror as exc:
+        raise ExtractionError("이미지 서버 주소를 확인할 수 없습니다.") from exc
+
+    for address in addresses:
+        ip = ipaddress.ip_address(address)
+        if not ip.is_global:
+            raise ExtractionError("내부 네트워크 이미지 주소는 사용할 수 없습니다.")
+
+
+def _download_image(image_url: str) -> tuple[bytes, str]:
+    import httpx
+
+    _validate_public_image_url(image_url)
+    try:
+        response = httpx.get(image_url, timeout=15)
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        raise ExtractionError("이미지를 내려받지 못했습니다.") from exc
+
+    content_type = response.headers.get("content-type", "").split(";", 1)[0].lower()
+    if content_type not in ALLOWED_IMAGE_TYPES:
+        raise ExtractionError("JPEG, PNG, WebP 이미지만 사용할 수 있습니다.")
+    if len(response.content) > MAX_IMAGE_BYTES:
+        raise ExtractionError("이미지는 10MB 이하여야 합니다.")
+    return response.content, content_type
+
+
+def download_private_image(image_url: str) -> tuple[bytes, str]:
+    """검증된 원본 이미지를 비공개 저장용으로 내려받는다."""
+    return _download_image(image_url)
 
 RECEIPT_JSON_SCHEMA_PROMPT = """\
 당신은 한국 영수증/세금계산서 이미지를 읽고 정형 데이터로 변환하는 전문가입니다.
@@ -97,12 +146,8 @@ class ClaudeVisionExtractor(ReceiptExtractor):
         self._model = model
 
     def _download_image_b64(self, image_url: str) -> tuple[str, str]:
-        import httpx
-
-        resp = httpx.get(image_url, timeout=15)
-        resp.raise_for_status()
-        content_type = resp.headers.get("content-type", "image/jpeg").split(";")[0]
-        return base64.b64encode(resp.content).decode("utf-8"), content_type
+        image, content_type = _download_image(image_url)
+        return base64.b64encode(image).decode("utf-8"), content_type
 
     def extract(self, image_url: str) -> ReceiptData:
         image_b64, media_type = self._download_image_b64(image_url)
@@ -280,11 +325,8 @@ class GoogleVisionExtractor(ReceiptExtractor):
             raise RuntimeError("GOOGLE_VISION_API_KEY 환경변수 필요")
 
     def _download_image_b64(self, image_url: str) -> str:
-        import httpx
-
-        resp = httpx.get(image_url, timeout=15)
-        resp.raise_for_status()
-        return base64.b64encode(resp.content).decode("utf-8")
+        image, _ = _download_image(image_url)
+        return base64.b64encode(image).decode("utf-8")
 
     def _ocr_text(self, image_b64: str) -> str:
         import httpx

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 os.environ.setdefault("EXTRACTOR", "mock")
@@ -22,10 +23,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+from app import report, storage  # noqa: E402
 from app.main import app  # noqa: E402
-from app import report  # noqa: E402
 
-client = TestClient(app)
 TEST_USER = "demo-user-001"
 
 
@@ -50,24 +50,29 @@ def fake_text_payload(text: str) -> dict:
 
 
 def main() -> None:
-    print("=== 1) 영수증 이미지 5건 전송 시뮬레이션 ===")
-    for i in range(5):
-        payload = fake_image_payload(f"https://dummy-kakao-cdn.example.com/receipt-{i}.jpg")
-        resp = client.post("/kakao/webhook", json=payload)
-        text = resp.json()["template"]["outputs"][0]["simpleText"]["text"]
-        print(f"[봇 응답 {i+1}] {text}")
-        confirm = client.post("/kakao/webhook", json=fake_text_payload("저장"))
-        confirm_text = confirm.json()["template"]["outputs"][0]["simpleText"]["text"]
-        print(f"[저장 확인 {i+1}] {confirm_text}")
+    with tempfile.TemporaryDirectory(prefix="receipt-bot-demo-") as temp_dir:
+        storage.DB_PATH = Path(temp_dir) / "receipts.db"
+        storage.init_db()
+        client = TestClient(app)
 
-    print("\n=== 2) '이번달' 발화 -> 월간 요약 ===")
-    resp = client.post("/kakao/webhook", json=fake_text_payload("이번달"))
-    print(resp.json()["template"]["outputs"][0]["simpleText"]["text"])
+        print("=== 1) 영수증 이미지 5건 전송 시뮬레이션 ===")
+        for i in range(5):
+            payload = fake_image_payload(f"https://dummy-kakao-cdn.example.com/receipt-{i}.jpg")
+            resp = client.post("/kakao/webhook", json=payload)
+            text = resp.json()["template"]["outputs"][0]["simpleText"]["text"]
+            print(f"[봇 응답 {i+1}] {text}")
+            confirm = client.post("/kakao/webhook", json=fake_text_payload("저장"))
+            confirm_text = confirm.json()["template"]["outputs"][0]["simpleText"]["text"]
+            print(f"[저장 확인 {i+1}] {confirm_text}")
 
-    print("\n=== 3) 신고철 엑셀 리포트 생성 ===")
-    out_path = Path(__file__).resolve().parent / "demo_report.xlsx"
-    report.export_to_excel(TEST_USER, out_path)
-    print(f"엑셀 생성 완료: {out_path} ({out_path.stat().st_size} bytes)")
+        print("\n=== 2) '이번달' 발화 -> 월간 요약 ===")
+        resp = client.post("/kakao/webhook", json=fake_text_payload("이번달"))
+        print(resp.json()["template"]["outputs"][0]["simpleText"]["text"])
+
+        print("\n=== 3) 신고철 엑셀 리포트 생성 ===")
+        out_path = Path(__file__).resolve().parent / "demo_report.xlsx"
+        report.export_to_excel(TEST_USER, out_path)
+        print(f"엑셀 생성 완료: {out_path} ({out_path.stat().st_size} bytes)")
 
 
 if __name__ == "__main__":

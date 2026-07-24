@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import os
 import sys
+import tempfile
 from pathlib import Path
 
 os.environ.setdefault("EXTRACTOR", "mock")
@@ -141,9 +142,14 @@ def check_excel_endpoint():
 
 
 if __name__ == "__main__":
-    check_malformed_json()
-    check_extraction_failure(None)
-    check_webhook_secret()
-    check_dotenv_loading()
-    check_excel_endpoint()
-    print("\n모든 엣지케이스 통과")
+    from app import storage
+
+    with tempfile.TemporaryDirectory(prefix="receipt-bot-edge-") as temp_dir:
+        storage.DB_PATH = Path(temp_dir) / "receipts.db"
+        storage.init_db()
+        check_malformed_json()
+        check_extraction_failure(None)
+        check_webhook_secret()
+        check_dotenv_loading()
+        check_excel_endpoint()
+        print("\n모든 엣지케이스 통과")

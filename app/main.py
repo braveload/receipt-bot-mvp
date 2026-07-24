@@ -21,7 +21,7 @@ from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 
 from . import kakao_adapter, report, storage
-from .extractor import ExtractionError, get_extractor
+from .extractor import ExtractionError, download_private_image, get_extractor
 
 try:
     from dotenv import load_dotenv
@@ -53,6 +53,11 @@ EDITABLE_FIELDS = {
 }
 VALID_DOC_TYPES = {"간이영수증", "세금계산서", "현금영수증", "카드전표"}
 VALID_CATEGORIES = {"광고비", "접대비", "소모품비", "통신비", "교통비", "식비", "임차료", "기타"}
+
+
+def _log_user_id(user_id: str) -> str:
+    """운영 로그용 비가역 사용자 식별자."""
+    return hashlib.sha256(user_id.encode()).hexdigest()[:12]
 
 
 def _format_receipt(row) -> str:
@@ -142,10 +147,20 @@ async def kakao_webhook(request: Request, x_webhook_secret: str | None = Header(
         )
 
     user_id = kakao_adapter.extract_user_id(payload)
+    if user_id == "unknown-user":
+        return JSONResponse(
+            kakao_adapter.build_simple_text_response(
+                "사용자 정보를 확인하지 못했어요. 카카오톡 채널에서 다시 시도해주세요."
+            )
+        )
 
     image_url = kakao_adapter.extract_image_url(payload)
     if image_url:
         try:
+            image_content = None
+            image_content_type = None
+            if os.environ.get("STORE_RECEIPT_IMAGES", "").lower() in {"1", "true", "yes"}:
+                image_content, image_content_type = download_private_image(image_url)
             # get_extractor()도 try 안으로 포함 — EXTRACTOR=google인데 GOOGLE_VISION_API_KEY가
             # 없는 경우처럼, 추출기 생성 자체가 실패해도(RuntimeError) 500 대신 친절한 안내가
             # 나가도록 한다. (이전에는 get_extractor()가 try 밖에 있어 이 경우 500이었음 — 수정)
@@ -153,21 +168,27 @@ async def kakao_webhook(request: Request, x_webhook_secret: str | None = Header(
             data = extractor.extract(image_url)
         except ExtractionError as exc:
             # 모델이 이상한 응답을 준 경우 — 500 대신 사용자에게 친절하게 안내하고 로그만 남김
-            print(f"[extract-error] user={user_id} url={image_url} err={exc}")
+            print(f"[extract-error] user_hash={_log_user_id(user_id)} err={exc}")
             return JSONResponse(
                 kakao_adapter.build_simple_text_response(
                     "영수증을 읽는 데 실패했어요 😥 사진이 흐릿하지 않은지 확인 후 다시 보내주세요."
                 )
             )
         except Exception as exc:  # 네트워크 오류, 설정 오류(RuntimeError) 등 예상 못한 실패 대비 최종 방어선
-            print(f"[extract-fatal] user={user_id} url={image_url} err={exc}")
+            print(f"[extract-fatal] user_hash={_log_user_id(user_id)} err={type(exc).__name__}")
             return JSONResponse(
                 kakao_adapter.build_simple_text_response(
                     "일시적인 오류가 발생했어요. 잠시 후 다시 시도해주세요."
                 )
             )
 
-        storage.create_draft_receipt(user_id, data, image_url)
+        storage.create_draft_receipt(
+            user_id,
+            data,
+            image_url="" if image_content else image_url,
+            image_content=image_content,
+            image_content_type=image_content_type,
+        )
         pending = storage.get_pending_receipt(user_id)
         reply = "영수증을 읽었어요. 아래 내용을 확인해주세요.\n\n" + _format_receipt(pending)
         if data.confidence < 0.6:
