@@ -49,6 +49,22 @@ class ExtractionError(Exception):
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
+def _sniff_image_media_type(content: bytes) -> str | None:
+    """실제 파일 시그니쳐(매직 바이트)로 이미지 형식을 판별한다.
+
+    카카오 이미지 CDN(kakaocdn.net)이 Content-Type 헤더를 예상과 다르게 내려주는
+    사례가 반복 발견되어(HTTPS 스킴 제한, JSON 파싱 문제에 이은 세 번째 사례),
+    신뢰할 수 없는 헤더 문자열 대신 실제 바이트로 판별하도록 근본적으로 바꿨다.
+    """
+    if content[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if content[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if content[:4] == b"RIFF" and content[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
 # 카카오 "이미지 보안전송 플러그인"이 발급하는 signed URL은 카카오 공식 문서 예시 기준
 # http(평문) 스킴으로 내려온다 (예: http://secure.kakaocdn.net/...?credential=...&signature=...).
 # 사용자가 임의로 지정할 수 없는 카카오 소유 인프라 도메인이고, URL 자체가 짧은 만료
@@ -97,12 +113,15 @@ def _download_image(image_url: str) -> tuple[bytes, str]:
     except httpx.HTTPError as exc:
         raise ExtractionError("이미지를 내려받지 못했습니다.") from exc
 
-    content_type = response.headers.get("content-type", "").split(";", 1)[0].lower()
-    if content_type not in ALLOWED_IMAGE_TYPES:
-        raise ExtractionError("JPEG, PNG, WebP 이미지만 사용할 수 있습니다.")
     if len(response.content) > MAX_IMAGE_BYTES:
         raise ExtractionError("이미지는 10MB 이하여야 합니다.")
-    return response.content, content_type
+
+    media_type = _sniff_image_media_type(response.content)
+    if media_type is None:
+        received = response.headers.get("content-type", "없음")
+        print(f"[image-type-rejected] content-type={received!r}")
+        raise ExtractionError("JPEG, PNG, WebP 이미지만 사용할 수 있습니다.")
+    return response.content, media_type
 
 
 def download_private_image(image_url: str) -> tuple[bytes, str]:
