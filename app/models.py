@@ -20,3 +20,10 @@ class ReceiptData:
 
     def to_dict(self) -> dict:
         return asdict(self)
+
+VALID_DOC_TYPES = {"간이영수증", "세금계산서", "현금영수증", "카드전표"}
+VALID_CATEGORIES = {"광고비", "접대비", "소모품비", "통신비", "교통비", "식비", "임차료", "기타"}
+EDITABLE_RECEIPT_FIELDS = {
+    "merchant", "amount", "date", "doc_type", "category",
+    "biz_or_personal", "biz_reg_no", "supply_amount", "vat_amount",
+}
