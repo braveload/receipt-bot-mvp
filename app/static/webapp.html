@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>영수증 정리 웹앱</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css">
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif; }
+  .spinner { border: 3px solid #e5e7eb; border-top-color: #4f46e5; border-radius: 50%; width: 20px; height: 20px; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+
+<div id="toast" class="fixed top-4 right-4 z-50 hidden max-w-sm px-4 py-3 rounded-lg shadow-lg text-sm"></div>
+
+<!-- 로그인/회원가입 -->
+<div id="auth-view" class="min-h-screen flex items-center justify-center px-4">
+  <div class="w-full max-w-sm bg-white rounded-2xl shadow p-8">
+    <h1 class="text-xl font-bold text-gray-900 mb-1">영수증 정리</h1>
+    <p class="text-sm text-gray-500 mb-6">카카오톡과 별개인 독립 웹앱입니다.</p>
+    <div class="flex mb-6 rounded-lg bg-gray-100 p-1 text-sm font-medium">
+      <button id="tab-login" class="flex-1 py-1.5 rounded-md bg-white shadow text-gray-900">로그인</button>
+      <button id="tab-register" class="flex-1 py-1.5 rounded-md text-gray-500">회원가입</button>
+    </div>
+    <form id="auth-form" class="space-y-3">
+      <input id="auth-email" type="email" required placeholder="이메일" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <input id="auth-password" type="password" required minlength="8" placeholder="비밀번호 (8자 이상)" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+      <button type="submit" id="auth-submit" class="w-full bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-indigo-700">로그인</button>
+    </form>
+    <p id="auth-error" class="text-red-600 text-xs mt-3 hidden"></p>
+  </div>
+</div>
+
+<!-- 메인 앱 -->
+<div id="app-view" class="hidden max-w-2xl mx-auto px-4 py-6">
+  <header class="flex items-center justify-between mb-6">
+    <h1 class="text-lg font-bold text-gray-900">영수증 정리</h1>
+    <div class="flex items-center gap-3 text-sm">
+      <span id="user-email" class="text-gray-500"></span>
+      <button id="logout-btn" class="text-gray-400 hover:text-gray-700">로그아웃</button>
+    </div>
+  </header>
+
+  <!-- 업로드 -->
+  <section id="upload-section" class="bg-white rounded-2xl shadow p-5 mb-5">
+    <h2 class="font-semibold text-gray-800 mb-3">영수증 등록</h2>
+    <label class="flex flex-col items-center justify-center border-2 border-dashed border-gray-300 rounded-xl py-8 cursor-pointer hover:border-indigo-400 transition">
+      <input id="file-input" type="file" accept="image/*" capture="environment" class="hidden">
+      <svg id="upload-icon" xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 7.5L12 3m0 0L7.5 7.5M12 3v13.5" /></svg>
+      <span id="upload-label" class="text-sm text-gray-500">사진 촬영 또는 선택</span>
+    </label>
+  </section>
+
+  <!-- 검토 중인 영수증 -->
+  <section id="pending-section" class="bg-white rounded-2xl shadow p-5 mb-5 hidden">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-gray-800">확인 중인 영수증</h2>
+      <span id="pending-confidence" class="text-xs text-amber-600 hidden">※ OCR 신뢰도 낮음, 꼭 확인하세요</span>
+    </div>
+    <div class="grid grid-cols-2 gap-3 text-sm" id="pending-fields"></div>
+    <p id="pending-error" class="text-red-600 text-xs mt-3 hidden"></p>
+    <div class="flex gap-2 mt-4">
+      <button id="pending-save" class="flex-1 bg-indigo-600 text-white rounded-lg py-2 text-sm font-medium hover:bg-indigo-700">저장</button>
+      <button id="pending-discard" class="flex-1 bg-gray-100 text-gray-700 rounded-lg py-2 text-sm font-medium hover:bg-gray-200">취소</button>
+    </div>
+  </section>
+
+  <!-- 월간 요약 -->
+  <section class="bg-white rounded-2xl shadow p-5 mb-5">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="font-semibold text-gray-800">월간 요약</h2>
+      <input id="month-picker" type="month" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
+    </div>
+    <div id="summary-box" class="text-sm text-gray-700 space-y-1"></div>
+    <button id="export-btn" class="mt-4 w-full bg-gray-800 text-white rounded-lg py-2 text-sm font-medium hover:bg-gray-900">엑셀로 다운로드</button>
+  </section>
+
+  <!-- 영수증 목록 -->
+  <section class="bg-white rounded-2xl shadow p-5">
+    <h2 class="font-semibold text-gray-800 mb-3">이번 달 내역</h2>
+    <div id="receipt-list" class="divide-y divide-gray-100 text-sm"></div>
+  </section>
+</div>
+
+<script>
+const API = "/api";
+let state = { token: localStorage.getItem("token") || null, email: localStorage.getItem("email") || "" };
+let authMode = "login";
+
+function toast(msg, isError) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = "fixed top-4 right-4 z-50 max-w-sm px-4 py-3 rounded-lg shadow-lg text-sm text-white " + (isError ? "bg-red-600" : "bg-gray-900");
+  setTimeout(() => { el.className += " hidden"; }, 3000);
+}
+
+async function api(path, options = {}) {
+  const headers = options.headers || {};
+  if (state.token) headers["Authorization"] = "Bearer " + state.token;
+  if (options.json) {
+    headers["Content-Type"] = "application/json";
+    options.body = JSON.stringify(options.json);
+  }
+  const res = await fetch(API + path, { ...options, headers });
+  if (res.status === 401) { logout(); throw new Error("로그인이 필요합니다."); }
+  if (!res.ok) {
+    let detail = "요청 처리 중 오류가 발생했어요.";
+    try { detail = (await res.json()).detail || detail; } catch (e) {}
+    throw new Error(detail);
+  }
+  const ct = res.headers.get("content-type") || "";
+  if (ct.includes("application/json")) return res.json();
+  return res;
+}
+
+function logout() {
+  state = { token: null, email: "" };
+  localStorage.removeItem("token");
+  localStorage.removeItem("email");
+  render();
+}
+
+function render() {
+  document.getElementById("auth-view").classList.toggle("hidden", !!state.token);
+  document.getElementById("app-view").classList.toggle("hidden", !state.token);
+  if (state.token) {
+    document.getElementById("user-email").textContent = state.email;
+    loadPending();
+    loadSummaryAndList();
+  }
+}
+
+// --- 인증 ---
+document.getElementById("tab-login").addEventListener("click", () => setAuthMode("login"));
+document.getElementById("tab-register").addEventListener("click", () => setAuthMode("register"));
+
+function setAuthMode(mode) {
+  authMode = mode;
+  const loginTab = document.getElementById("tab-login");
+  const registerTab = document.getElementById("tab-register");
+  loginTab.className = "flex-1 py-1.5 rounded-md text-sm font-medium " + (mode === "login" ? "bg-white shadow text-gray-900" : "text-gray-500");
+  registerTab.className = "flex-1 py-1.5 rounded-md text-sm font-medium " + (mode === "register" ? "bg-white shadow text-gray-900" : "text-gray-500");
+  document.getElementById("auth-submit").textContent = mode === "login" ? "로그인" : "회원가입";
+  document.getElementById("auth-error").classList.add("hidden");
+}
+
+document.getElementById("auth-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const email = document.getElementById("auth-email").value.trim();
+  const password = document.getElementById("auth-password").value;
+  const errorEl = document.getElementById("auth-error");
+  errorEl.classList.add("hidden");
+  try {
+    const data = await api(authMode === "login" ? "/auth/login" : "/auth/register", {
+      method: "POST",
+      json: { email, password },
+    });
+    state = { token: data.token, email: data.user.email };
+    localStorage.setItem("token", state.token);
+    localStorage.setItem("email", state.email);
+    render();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.remove("hidden");
+  }
+});
+
+document.getElementById("logout-btn").addEventListener("click", logout);
+
+// --- 업로드 ---
+document.getElementById("file-input").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const label = document.getElementById("upload-label");
+  label.innerHTML = '<span class="spinner inline-block align-middle mr-2"></span>영수증을 읽는 중...';
+  const formData = new FormData();
+  formData.append("file", file);
+  try {
+    const data = await api("/receipts/upload", { method: "POST", body: formData });
+    if (data.duplicate) toast("이미 등록한 영수증이에요.");
+    else toast("영수증을 읽었어요. 내용을 확인해주세요.");
+    await loadPending();
+  } catch (err) {
+    toast(err.message, true);
+  } finally {
+    label.textContent = "사진 촬영 또는 선택";
+    e.target.value = "";
+  }
+});
+
+// --- 검토 중인 영수증 ---
+const FIELD_DEFS = [
+  { key: "merchant", label: "상호명", type: "text" },
+  { key: "amount", label: "금액", type: "number" },
+  { key: "date", label: "날짜", type: "date" },
+  { key: "doc_type", label: "증빙유형", type: "select", options: ["간이영수증", "세금계산서", "현금영수증", "카드전표"] },
+  { key: "category", label: "카테고리", type: "select", options: ["광고비", "접대비", "소모품비", "통신비", "교통비", "식비", "임차료", "기타"] },
+  { key: "biz_or_personal", label: "구분", type: "select", options: ["사업", "개인"] },
+  { key: "supply_amount", label: "공급가액", type: "number" },
+  { key: "vat_amount", label: "부가세", type: "number" },
+];
+let currentPending = null;
+
+async function loadPending() {
+  const pending = await api("/receipts/pending");
+  currentPending = pending;
+  const section = document.getElementById("pending-section");
+  if (!pending) { section.classList.add("hidden"); return; }
+  section.classList.remove("hidden");
+  document.getElementById("pending-confidence").classList.toggle("hidden", !(pending.confidence < 0.6));
+  document.getElementById("pending-error").classList.add("hidden");
+
+  const container = document.getElementById("pending-fields");
+  container.innerHTML = "";
+  FIELD_DEFS.forEach((def) => {
+    const wrap = document.createElement("div");
+    const value = pending[def.key] ?? "";
+    let inputHtml;
+    if (def.type === "select") {
+      inputHtml = `<select data-field="${def.key}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm">` +
+        def.options.map(o => `<option ${o === value ? "selected" : ""}>${o}</option>`).join("") + `</select>`;
+    } else {
+      inputHtml = `<input data-field="${def.key}" type="${def.type}" value="${value}" class="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm">`;
+    }
+    wrap.innerHTML = `<label class="text-xs text-gray-500 block mb-1">${def.label}</label>${inputHtml}`;
+    container.appendChild(wrap);
+  });
+}
+
+document.getElementById("pending-save").addEventListener("click", async () => {
+  const errorEl = document.getElementById("pending-error");
+  errorEl.classList.add("hidden");
+  const changes = {};
+  document.querySelectorAll("#pending-fields [data-field]").forEach((el) => {
+    changes[el.dataset.field] = el.value;
+  });
+  try {
+    await api("/receipts/pending", { method: "PATCH", json: { changes } });
+    await api("/receipts/confirm", { method: "POST" });
+    toast("저장 완료했어요. ✅");
+    await loadPending();
+    await loadSummaryAndList();
+  } catch (err) {
+    errorEl.textContent = err.message;
+    errorEl.classList.remove("hidden");
+  }
+});
+
+document.getElementById("pending-discard").addEventListener("click", async () => {
+  await api("/receipts/pending", { method: "DELETE" });
+  await loadPending();
+});
+
+// --- 월간 요약 + 목록 ---
+function currentMonth() {
+  const picker = document.getElementById("month-picker");
+  return picker.value || new Date().toISOString().slice(0, 7);
+}
+
+document.getElementById("month-picker").addEventListener("change", loadSummaryAndList);
+
+async function loadSummaryAndList() {
+  const month = currentMonth();
+  if (!document.getElementById("month-picker").value) {
+    document.getElementById("month-picker").value = month;
+  }
+  const [summary, list] = await Promise.all([
+    api(`/receipts/summary?month=${month}`),
+    api(`/receipts?month=${month}`),
+  ]);
+
+  const box = document.getElementById("summary-box");
+  if (summary.count === 0) {
+    box.innerHTML = `<p class="text-gray-400">${month}에는 아직 등록된 영수증이 없어요.</p>`;
+  } else {
+    const catLines = summary.categories.slice(0, 3)
+      .map(c => `<li>· ${c.category}: ${c.amount.toLocaleString()}원</li>`).join("");
+    box.innerHTML = `
+      <p>총 <b>${summary.count}</b>건</p>
+      <p>인정 가능 경비(사업): <b>${summary.biz_total.toLocaleString()}원</b></p>
+      <p>개인 지출: <b>${summary.personal_total.toLocaleString()}원</b></p>
+      <ul class="mt-1">${catLines}</ul>`;
+  }
+
+  const listEl = document.getElementById("receipt-list");
+  listEl.innerHTML = list.length === 0
+    ? `<p class="text-gray-400 py-3">내역이 없습니다.</p>`
+    : list.map(r => `
+      <div class="py-3 flex items-center justify-between">
+        <div>
+          <p class="font-medium text-gray-800">${r.merchant}</p>
+          <p class="text-xs text-gray-400">${r.date} · ${r.category} · ${r.biz_or_personal}</p>
+        </div>
+        <p class="font-semibold text-gray-900">${r.amount.toLocaleString()}원</p>
+      </div>`).join("");
+}
+
+document.getElementById("export-btn").addEventListener("click", async () => {
+  try {
+    const month = currentMonth();
+    const res = await api(`/receipts/export?month=${month}`);
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `영수증_${month}.xlsx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    toast(err.message, true);
+  }
+});
+
+setAuthMode("login");
+render();
+</script>
+</body>
+</html>
