@@ -49,16 +49,34 @@ class ExtractionError(Exception):
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp"}
 
+# 카카오 "이미지 보안전송 플러그인"이 발급하는 signed URL은 카카오 공식 문서 예시 기준
+# http(평문) 스킴으로 내려온다 (예: http://secure.kakaocdn.net/...?credential=...&signature=...).
+# 사용자가 임의로 지정할 수 없는 카카오 소유 인프라 도메인이고, URL 자체가 짧은 만료
+# 시간을 가진 서명된 링크이므로 이 도메인에 한해서만 http를 예외적으로 허용한다.
+# 그 외 모든 후보(사용자 입력 URL 등)는 기존대로 https만 허용해 SSRF 위험을 그대로 방어한다.
+_TRUSTED_HTTP_HOST_SUFFIX = ".kakaocdn.net"
+
+
+def _is_trusted_kakao_http_host(hostname: str) -> bool:
+    return hostname == _TRUSTED_HTTP_HOST_SUFFIX.lstrip(".") or hostname.endswith(_TRUSTED_HTTP_HOST_SUFFIX)
+
 
 def _validate_public_image_url(image_url: str) -> None:
     parsed = urlsplit(image_url)
-    if parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password:
+    if not parsed.hostname or parsed.username or parsed.password:
+        raise ExtractionError("이미지는 공개 HTTPS 주소로만 전송할 수 있습니다.")
+
+    allowed_http = parsed.scheme == "http" and _is_trusted_kakao_http_host(parsed.hostname)
+    if parsed.scheme != "https" and not allowed_http:
+        # 실제 서비스에서 예상 못한 스킴/호스트로 거부되는 경우를 진단할 수 있도록
+        # 스킴과 호스트만 남긴다 (URL의 credential/signature 쿼리는 로그에 남기지 않음).
+        print(f"[image-scheme-rejected] scheme={parsed.scheme!r} host={parsed.hostname!r}")
         raise ExtractionError("이미지는 공개 HTTPS 주소로만 전송할 수 있습니다.")
 
     try:
         addresses = {
             info[4][0]
-            for info in socket.getaddrinfo(parsed.hostname, parsed.port or 443, type=socket.SOCK_STREAM)
+            for info in socket.getaddrinfo(parsed.hostname, parsed.port or (443 if parsed.scheme == "https" else 80), type=socket.SOCK_STREAM)
         }
     except socket.gaierror as exc:
         raise ExtractionError("이미지 서버 주소를 확인할 수 없습니다.") from exc
